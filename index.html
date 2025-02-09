@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prop Bets Leaderboard and Answer Key</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #2d7a4d;
+            margin-bottom: 30px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background-color: #e0e0e0;
+            border: none;
+            cursor: pointer;
+            flex-grow: 1;
+            text-align: center;
+        }
+        .tab.active {
+            background-color: #2d7a4d;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+        }
+        th {
+            background-color: #2d7a4d;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+        }
+        tr:nth-child(even) {
+            background-color: #e6f3ec;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .gold { background-color: #ffd700 !important; }
+        .silver { background-color: #c0c0c0 !important; }
+        .bronze { background-color: #cd7f32 !important; }
+        .refresh-time {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Prop Bets</h1>
+        <div class="tabs">
+            <button class="tab active" onclick="openTab(event, 'leaderboard')">Leaderboard</button>
+            <button class="tab" onclick="openTab(event, 'answerKey')">Answer Key</button>
+        </div>
+        <div id="leaderboard" class="tab-content active">
+            <table id="leaderboardTable">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Name</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body">
+                </tbody>
+            </table>
+            <div class="refresh-time" id="refresh-time"></div>
+        </div>
+        <div id="answerKey" class="tab-content">
+            <table id="answerKeyTable">
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>Correct Answer</th>
+                    </tr>
+                </thead>
+                <tbody id="answerKey-body">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Replace this with your actual Google Sheet ID
+        const SHEET_ID = '1G2BqdiPXWCxOXGyJHsbLJGtx9MHhqSgXKDJ2M9TDxaQ';
+        const SHEET_NAME_SCORES = 'Scores';
+        const SHEET_NAME_ANSWER_KEY = 'Answer Key';
+
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tab");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
+        function fetchSheetData(sheetName) {
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
+            return fetch(url)
+                .then(response => response.text())
+                .then(data => {
+                    return data.split('\n').map(row => 
+                        row.split(',').map(cell => 
+                            cell.replace(/^"(.*)"$/, '$1')
+                        )
+                    );
+                });
+        }
+
+        function updateLeaderboard(data) {
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = data.slice(1).map((row, index) => `
+                <tr class="${getMedalClass(index + 1)}">
+                    <td>${row[0]}</td>
+                    <td>${row[1]}</td>
+                    <td>${row[2]}</td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('refresh-time').textContent = 
+                'Last updated: ' + new Date().toLocaleTimeString();
+        }
+
+        function updateAnswerKey(data) {
+            const tbody = document.getElementById('answerKey-body');
+            tbody.innerHTML = data.slice(1).map(row => `
+                <tr>
+                    <td>${row[0]}</td>
+                    <td>${row[1]}</td>
+                </tr>
+            `).join('');
+        }
+
+        function getMedalClass(rank) {
+            if (rank === 1) return 'gold';
+            if (rank === 2) return 'silver';
+            if (rank === 3) return 'bronze';
+            return '';
+        }
+
+        function loadData() {
+            fetchSheetData(SHEET_NAME_SCORES).then(updateLeaderboard);
+            fetchSheetData(SHEET_NAME_ANSWER_KEY).then(updateAnswerKey);
+        }
+
+        // Load data initially
+        loadData();
+
+        // Refresh data every 30 seconds
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>
+
