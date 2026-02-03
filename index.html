@@ -1,194 +1,701 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prop Bets Leaderboard and Answer Key</title>
+    <title>Super Bowl LIX Prop Bets</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Oswald:wght@500;700&display=swap"
+        rel="stylesheet">
+
     <style>
+        :root {
+            /* Super Bowl LIX / Team Colors */
+            --primary: #E31837;
+            /* Chiefs Red */
+            --secondary: #AA0000;
+            /* Darker Red */
+            --accent: #FFB81C;
+            /* Chiefs/Generic Gold */
+            --eagles-green: #004C54;
+            /* Eagles Midnight Green (if applicable) */
+            --niners-gold: #B3995D;
+
+            --bg-dark: #121212;
+            --bg-card: #1E1E1E;
+            --bg-input: #2D2D2D;
+
+            --text-main: #FFFFFF;
+            --text-muted: #A0A0A0;
+
+            --success: #00C853;
+            --error: #FF3D00;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding-bottom: 80px;
+            /* Space for fixed bottom bar if needed */
         }
-        .container {
-            background-color: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+        /* Typography */
+        h1,
+        h2,
+        h3 {
+            font-family: 'Oswald', sans-serif;
+            text-transform: uppercase;
+            margin: 0;
         }
-        h1 {
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--secondary), var(--bg-dark));
+            padding: 20px;
             text-align: center;
-            color: #2d7a4d;
-            margin-bottom: 30px;
+            border-bottom: 2px solid var(--accent);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         }
+
+        .header-title {
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .header-subtitle {
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+
+        /* Tabs */
         .tabs {
             display: flex;
-            margin-bottom: 20px;
+            background: var(--bg-card);
+            padding: 10px;
+            gap: 10px;
+            position: relative;
+            z-index: 90;
         }
-        .tab {
-            padding: 10px 20px;
-            background-color: #e0e0e0;
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
             border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'Oswald', sans-serif;
+            font-size: 1rem;
             cursor: pointer;
-            flex-grow: 1;
-            text-align: center;
+            border-radius: 8px;
+            transition: all 0.2s;
         }
-        .tab.active {
-            background-color: #2d7a4d;
-            color: white;
+
+        .tab-btn.active {
+            background: var(--bg-input);
+            color: var(--accent);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
+
+        /* Container */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
         .tab-content {
             display: none;
         }
+
         .tab-content.active {
             display: block;
+            animation: fadeIn 0.3s ease;
         }
-        table {
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Forms & Questions */
+        .section-header {
+            background: var(--bg-card);
+            color: var(--accent);
+            padding: 15px;
+            margin: 20px -15px 15px -15px;
+            /* Bleed to edges */
+            position: sticky;
+            top: 85px;
+            /* Below main header */
+            z-index: 80;
+            font-size: 1.1rem;
+            border-left: 5px solid var(--accent);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .question-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+
+        .q-title {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .option-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: var(--bg-input);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            min-height: 50px;
+        }
+
+        .option-label:hover {
+            background: #3d3d3d;
+        }
+
+        input[type="radio"] {
+            display: none;
+        }
+
+        input[type="radio"]:checked+.option-label {
+            border-color: var(--accent);
+            background: rgba(255, 184, 28, 0.1);
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        /* Inputs */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 15px;
+            background: var(--bg-input);
+            border: 2px solid #333;
+            color: white;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Button */
+        .submit-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Oswald', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(227, 24, 55, 0.4);
+            transition: transform 0.1s;
+        }
+
+        .submit-btn:active {
+            transform: scale(0.98);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+
+        /* Loader */
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #333;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px auto;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Leaderboard */
+        .leaderboard-table {
             width: 100%;
             border-collapse: collapse;
-            background-color: white;
         }
-        th {
-            background-color: #2d7a4d;
+
+        .leaderboard-table th {
+            text-align: left;
+            color: var(--text-muted);
+            padding: 10px;
+            font-weight: 500;
+            border-bottom: 1px solid #333;
+        }
+
+        .leaderboard-table td {
+            padding: 15px 10px;
+            border-bottom: 1px solid #333;
+            font-weight: 500;
+        }
+
+        .rank-cell {
+            width: 40px;
+            font-family: 'Oswald';
+            color: var(--accent);
+            font-size: 1.1rem;
+        }
+
+        .gold-row {
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            padding: 15px 25px;
+            border-radius: 50px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .toast.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .toast.success {
+            background: var(--success);
+            color: #003300;
+        }
+
+        .toast.error {
+            background: var(--error);
             color: white;
-            padding: 15px;
-            text-align: center;
-            font-weight: bold;
-        }
-        td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #eee;
-            text-align: center;
-        }
-        tr:nth-child(even) {
-            background-color: #e6f3ec;
-        }
-        tr:last-child td {
-            border-bottom: none;
-        }
-        .gold { background-color: #ffd700 !important; }
-        .silver { background-color: #c0c0c0 !important; }
-        .bronze { background-color: #cd7f32 !important; }
-        .refresh-time {
-            text-align: center;
-            color: #666;
-            font-size: 0.9em;
-            margin-top: 20px;
         }
     </style>
 </head>
+
 <body>
+
+    <header>
+        <div class="header-title">SUPER BOWL LIX</div>
+        <div class="header-subtitle">PROP BETS CHALLENGE</div>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('bets')">PLACE BETS</button>
+        <button class="tab-btn" onclick="switchTab('leaderboard')">LEADERBOARD</button>
+    </div>
+
     <div class="container">
-        <h1>Prop Bets</h1>
-        <div class="tabs">
-            <button class="tab active" onclick="openTab(event, 'leaderboard')">Leaderboard</button>
-            <button class="tab" onclick="openTab(event, 'answerKey')">Answer Key</button>
+        <!-- LOADING STATE -->
+        <div id="loader" class="loader">
+            <div class="spinner"></div>
+            <div>Loading Props...</div>
         </div>
-        <div id="leaderboard" class="tab-content active">
-            <table id="leaderboardTable">
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Name</th>
-                        <th>Score</th>
-                    </tr>
-                </thead>
-                <tbody id="leaderboard-body">
-                </tbody>
-            </table>
-            <div class="refresh-time" id="refresh-time"></div>
+
+        <!-- BETS TAB -->
+        <div id="bets-tab" class="tab-content active">
+            <div id="already-submitted"
+                style="display:none; text-align: center; padding: 40px; color: var(--text-muted);">
+                <div style="font-size: 3rem; margin-bottom: 20px;">✅</div>
+                <h3>Bets Submitted!</h3>
+                <p>Good luck!</p>
+                <button onclick="resetSubmission()"
+                    style="background:none; border:none; text-decoration:underline; color:#666; margin-top:20px; cursor:pointer;">Submit
+                    another response</button>
+            </div>
+
+            <form id="prop-bets-form" onsubmit="submitBets(event)">
+                <div class="question-card" style="border-color: var(--accent);">
+                    <div class="q-title" style="color: var(--accent);">YOUR NAME</div>
+                    <input type="text" name="name" class="text-input" placeholder="Enter your full name" required>
+                </div>
+
+                <div id="questions-container">
+                    <!-- Questions injected here -->
+                </div>
+
+                <div style="height: 20px;"></div>
+                <button type="submit" id="submit-btn" class="submit-btn">LOCK IN BETS 🔒</button>
+            </form>
         </div>
-        <div id="answerKey" class="tab-content">
-            <table id="answerKeyTable">
-                <thead>
-                    <tr>
-                        <th>Question</th>
-                        <th>Correct Answer</th>
-                    </tr>
-                </thead>
-                <tbody id="answerKey-body">
-                </tbody>
-            </table>
+
+        <!-- LEADERBOARD TAB -->
+        <div id="leaderboard-tab" class="tab-content">
+            <div class="question-card">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Player</th>
+                            <th style="text-align:right">Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        <tr>
+                            <td colspan="3" style="text-align:center; padding:30px; color:#666;">Waiting for scores...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="text-align:center; color:#666; font-size:0.8rem; margin-top:20px;" id="last-updated"></div>
         </div>
     </div>
 
-    <script>
-        // Replace this with your actual Google Sheet ID
-        const SHEET_ID = '1G2BqdiPXWCxOXGyJHsbLJGtx9MHhqSgXKDJ2M9TDxaQ';
-        const SHEET_NAME_SCORES = 'Scores';
-        const SHEET_NAME_ANSWER_KEY = 'Answer Key';
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="toast">
+        <span id="toast-icon"></span>
+        <span id="toast-msg"></span>
+    </div>
 
-        function openTab(evt, tabName) {
-            var i, tabcontent, tablinks;
-            tabcontent = document.getElementsByClassName("tab-content");
-            for (i = 0; i < tabcontent.length; i++) {
-                tabcontent[i].style.display = "none";
+    <script>
+        // CONFIG
+        const SHEET_ID = '1t44Fuvdb81u6lhouktREDtdgOCIs2dAh6faNYjX-rbM';
+        const SHEET_NAME_QUESTIONS = 'Printable Prop Bets Sheet';
+        const SHEET_NAME_SCORES = 'Scores'; // Or Submissions?
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxlvaNjMgMEsxzTg8MPZCFVb1F1Y2zMd8WJdeQOw8vCkUfCp1pLvpnEZv2AyYYoA4r9/exec';
+
+        // STATE
+        let questions = [];
+
+        // INIT
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('sb_lix_submitted')) {
+                showSubmittedState();
             }
-            tablinks = document.getElementsByClassName("tab");
-            for (i = 0; i < tablinks.length; i++) {
-                tablinks[i].className = tablinks[i].className.replace(" active", "");
-            }
-            document.getElementById(tabName).style.display = "block";
-            evt.currentTarget.className += " active";
+            loadQuestions();
+            // loadLeaderboard(); // Init Load
+        });
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(tab + '-tab').classList.add('active');
+            document.querySelector(`button[onclick="switchTab('${tab}')"]`).classList.add('active');
+
+            if (tab === 'leaderboard') loadLeaderboard();
         }
 
-        function fetchSheetData(sheetName) {
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
-            return fetch(url)
-                .then(response => response.text())
-                .then(data => {
-                    return data.split('\n').map(row => 
-                        row.split(',').map(cell => 
-                            cell.replace(/^"(.*)"$/, '$1')
-                        )
-                    );
+        // --- DATA LOADING ---
+
+        function fetchSheetRecs(sheetName) {
+            // Using GVIZ for read-only public access without key
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+            return fetch(url).then(r => r.text());
+        }
+
+        async function loadQuestions() {
+            const loader = document.getElementById('loader');
+            const container = document.getElementById('questions-container');
+
+            loader.style.display = 'block';
+
+            try {
+                const csvText = await fetchSheetRecs(SHEET_NAME_QUESTIONS);
+                const rows = parseCSV(csvText);
+
+                // Expecting Rows:
+                // Row 1-4: Headers/Junk
+                // Row 5+: Content
+                // Col A: Question OR Header
+                // Col B-G: Options or Empty
+
+                let html = '';
+                let qIndex = 1;
+
+                // Start loop from index 4 (Row 5)
+                for (let i = 4; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue;
+
+                    const colA = cleanStr(row[0]);
+
+                    if (!colA) continue; // Empty row
+
+                    // Check if it's a question (Starts with a number followed by dot or paranthesis)
+                    const isQuestion = /^\d+[\.)]/.test(colA);
+
+                    if (isQuestion) {
+                        // It's a question
+                        const qText = colA;
+                        // Get options (Col B onwards)
+                        const options = row.slice(1).map(cleanStr).filter(o => o);
+
+                        html += renderQuestion(qIndex, qText, options);
+                        qIndex++;
+                    } else {
+                        // It's likely a section header (e.g. "Before Kickoff")
+                        // Ignore if it looks like metadata e.g. "Google form..."
+                        if (colA.includes('http') || colA.includes('Google form')) continue;
+
+                        html += `<div class="section-header">${colA}</div>`;
+                    }
+                }
+
+                container.innerHTML = html;
+            } catch (err) {
+                console.error(err);
+                showToast('Error loading questions. Refresh page.', 'error');
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        function renderQuestion(id, title, options) {
+            // If no options found, maybe it's a fill-in? 
+            // For now assuming all have options based on screenshot.
+
+            let optionsHtml = '';
+
+            if (options.length > 0) {
+                optionsHtml = `<div class="options-grid">`;
+                options.forEach(opt => {
+                    const valsafe = opt.replace(/"/g, '&quot;');
+                    optionsHtml += `
+                        <label>
+                            <input type="radio" name="q${id}" value="${valsafe}" required>
+                            <div class="option-label">${opt}</div>
+                        </label>
+                    `;
+                });
+                optionsHtml += `</div>`;
+            } else {
+                // Fallback to text input if no options found but it was marked as question
+                optionsHtml = `<input type="text" name="q${id}" class="text-input" placeholder="Your Answer">`;
+            }
+
+            return `
+                <div class="question-card">
+                    <div class="q-title">${title}</div>
+                    ${optionsHtml}
+                </div>
+            `;
+        }
+
+        async function loadLeaderboard() {
+            const tbody = document.getElementById('leaderboard-body');
+            try {
+                // Try fetching "Scores" tab first, if fails, usually undefined.
+                // Note: If tab doesn't exist, GVIZ might return error or first tab.
+                const csvText = await fetchSheetRecs('Scores');
+                const rows = parseCSV(csvText);
+
+                // Assuming standard leaderboard: Rank, Name, Score
+                // Row 1 = Headers
+                const dataRows = rows.slice(1).filter(r => r[0] && r[1]); // Filter empty
+
+                if (dataRows.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">No scores yet.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = dataRows.map((row, i) => {
+                    const rank = i + 1;
+                    const name = row[1] || 'Unknown'; // Adj index based on sheet
+                    const score = row[2] || '0';
+
+                    let goldClass = rank === 1 ? 'gold-row' : '';
+                    let trophy = rank === 1 ? '🏆 ' : (rank === 2 ? '🥈 ' : (rank === 3 ? '🥉 ' : ''));
+
+                    return `
+                        <tr class="${goldClass}">
+                            <td class="rank-cell">${rank}</td>
+                            <td>${trophy}${name}</td>
+                            <td style="text-align:right; font-weight:bold;">${score}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                document.getElementById('last-updated').innerText = 'Last updated: ' + new Date().toLocaleTimeString();
+
+            } catch (e) {
+                console.log("Could not load leaderboard", e);
+                // Fail silently or show message
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">Leaderboard unavailable.</td></tr>`;
+            }
+        }
+
+        // --- SUBMISSION ---
+
+        function submitBets(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.innerText = 'Submitting...';
+
+            const formData = new FormData(e.target);
+            const data = {};
+            formData.forEach((value, key) => data[key] = value);
+
+            // Send to Google Apps Script
+            // We use 'no-cors' mode because GAPPS script redirects, which fetch blocks in strict cors. 
+            // However, with 'no-cors' we can't read response. 
+            // Standard hack: Submit form to hidden iframe or just trust it.
+            // BETTER: Use URLSearchParams and POST.
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors', // Important for Google Scripts
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams(data)
+            })
+                .then(() => {
+                    // Since no-cors returns opaque response, we assume success if no network error.
+                    localStorage.setItem('sb_lix_submitted', 'true');
+                    showToast('Bets Locked In! 🏈', 'success');
+                    showSubmittedState();
+                })
+                .catch(err => {
+                    showToast('Error submitting bets. Try again.', 'error');
+                    btn.disabled = false;
+                    btn.innerText = 'LOCK IN BETS 🔒';
                 });
         }
 
-        function updateLeaderboard(data) {
-            const tbody = document.getElementById('leaderboard-body');
-            tbody.innerHTML = data.slice(1).map((row, index) => `
-                <tr class="${getMedalClass(index + 1)}">
-                    <td>${row[0]}</td>
-                    <td>${row[1]}</td>
-                    <td>${row[2]}</td>
-                </tr>
-            `).join('');
-            
-            document.getElementById('refresh-time').textContent = 
-                'Last updated: ' + new Date().toLocaleTimeString();
+        function showSubmittedState() {
+            document.getElementById('prop-bets-form').style.display = 'none';
+            document.getElementById('already-submitted').style.display = 'block';
+            document.getElementById('already-submitted').scrollIntoView({ behavior: 'smooth' });
         }
 
-        function updateAnswerKey(data) {
-            const tbody = document.getElementById('answerKey-body');
-            tbody.innerHTML = data.slice(1).map(row => `
-                <tr>
-                    <td>${row[0]}</td>
-                    <td>${row[1]}</td>
-                </tr>
-            `).join('');
+        function resetSubmission() {
+            // For testing or multiple entries
+            document.getElementById('prop-bets-form').style.display = 'block';
+            document.getElementById('already-submitted').style.display = 'none';
         }
 
-        function getMedalClass(rank) {
-            if (rank === 1) return 'gold';
-            if (rank === 2) return 'silver';
-            if (rank === 3) return 'bronze';
-            return '';
+
+        // --- UTILS ---
+
+        function cleanStr(str) {
+            if (!str) return '';
+            return str.replace(/^"|"$/g, '').trim(); // Remove CSV quotes
         }
 
-        function loadData() {
-            fetchSheetData(SHEET_NAME_SCORES).then(updateLeaderboard);
-            fetchSheetData(SHEET_NAME_ANSWER_KEY).then(updateAnswerKey);
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.className = `toast show ${type}`;
+            setTimeout(() => t.classList.remove('show'), 3000);
         }
 
-        // Load data initially
-        loadData();
+        // Simple CSV Parser (handles quoted commas roughly)
+        function parseCSV(text) {
+            const rows = [];
+            let row = [];
+            let inQuote = false;
+            let currentCell = '';
 
-        // Refresh data every 30 seconds
-        setInterval(loadData, 30000);
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const nextChar = text[i + 1];
+
+                if (char === '"') {
+                    if (inQuote && nextChar === '"') {
+                        currentCell += '"';
+                        i++; // Skip escape
+                    } else {
+                        inQuote = !inQuote;
+                    }
+                } else if (char === ',' && !inQuote) {
+                    row.push(currentCell);
+                    currentCell = '';
+                } else if ((char === '\r' || char === '\n') && !inQuote) {
+                    if (currentCell || row.length > 0) row.push(currentCell);
+                    if (row.length > 0) rows.push(row);
+                    row = [];
+                    currentCell = '';
+                    if (char === '\r' && nextChar === '\n') i++;
+                } else {
+                    currentCell += char;
+                }
+            }
+            if (currentCell || row.length > 0) {
+                row.push(currentCell);
+                rows.push(row);
+            }
+            return rows;
+        }
     </script>
 </body>
-</html>
 
+</html>
