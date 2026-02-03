@@ -582,14 +582,14 @@
 
             <div id="admin-dashboard-view" style="display:none;">
                 <div class="section-header" style="background: var(--patriots-red); color: white; border-color: white;">
-                    ⚠️ ADMIN MODE: SUBMIT ANSWER KEY
+                    ⚠️ ADMIN: PROP BET CONTROL CENTER
                 </div>
                 <!-- Simplified Admin Form -->
                 <form id="admin-form" onsubmit="submitAdminKey(event)">
                     <div id="admin-questions-container"></div>
                     <div style="height:20px;"></div>
-                    <button type="submit" class="submit-btn" style="background: var(--patriots-red);">UPDATE ANSWERS
-                        🔑</button>
+                    <button type="submit" class="submit-btn" style="background: var(--patriots-red);">UPDATE LIVE
+                        RESULTS 📡</button>
                 </form>
             </div>
         </div>
@@ -790,7 +790,7 @@
             }
         }
 
-        function renderQuestion(id, title, options, isAdmin = false) {
+        function renderQuestion(id, title, options, isAdmin = false, preSelectedValue = null) {
             let optionsHtml = '';
             // For admin, prefix keys differently
             const namePrefix = isAdmin ? 'admin_q' : 'q';
@@ -799,16 +799,20 @@
                 optionsHtml = `<div class="options-grid">`;
                 options.forEach(opt => {
                     const valsafe = String(opt).replace(/"/g, '&quot;');
+                    // Check if matched
+                    const isChecked = preSelectedValue && String(opt) === String(preSelectedValue) ? 'checked' : '';
+
                     optionsHtml += `
                         <label>
-                            <input type="radio" name="${namePrefix}${id}" value="${valsafe}" ${!isAdmin ? 'required' : ''}>
+                            <input type="radio" name="${namePrefix}${id}" value="${valsafe}" ${!isAdmin ? 'required' : ''} ${isChecked}>
                             <div class="option-label" ${isAdmin ? 'style="font-size:0.8rem; min-height:40px; padding:10px;"' : ''}>${opt}</div>
                         </label>
                     `;
                 });
                 optionsHtml += `</div>`;
             } else {
-                optionsHtml = `<input type="text" name="${namePrefix}${id}" class="text-input" placeholder="Answer">`;
+                const val = preSelectedValue || '';
+                optionsHtml = `<input type="text" name="${namePrefix}${id}" class="text-input" placeholder="Answer" value="${val}">`;
             }
 
             return `
@@ -819,54 +823,23 @@
             `;
         }
 
-        function renderAdminQuestions() {
-            const container = document.getElementById('admin-questions-container');
-            if (container.innerHTML) return;
-
-            let html = '';
-            questionsData.forEach(q => {
-                html += renderQuestion(q.id, q.text, q.options, true);
-            });
-            container.innerHTML = html;
-        }
-
-        async function loadLeaderboard() {
-            const tbody = document.getElementById('leaderboard-body');
+        async function getAnswerKeyMap() {
+            // Fetch AnswerKey sheet
             try {
-                const data = await fetchSheetData('Scores');
+                const data = await fetchSheetData('AnswerKey');
                 const rows = data.table.rows;
-                const validRows = [];
-                // Look for header row to identify columns? 
-                // Let's assume Rank=A, Name=B, Score=C. Apps Script writes: Rank, Name, Score.
-
+                const keyMap = {};
                 rows.forEach((r, i) => {
                     if (i < 1) return;
                     if (!r || !r.c) return;
-
-                    // Column Index 1 = Name, Column Index 2 = Score
-                    const name = r.c[1] ? r.c[1].v : '';
-                    const score = r.c[2] ? r.c[2].v : 0;
-
-                    if (name && String(name).toLowerCase() !== 'name') {
-                        validRows.push({ name, score: Number(score) || 0 });
-                    }
+                    const qId = r.c[0] ? r.c[0].v : null;
+                    const ans = r.c[1] ? r.c[1].v : null;
+                    if (qId && ans) keyMap[qId] = ans;
                 });
-
-                if (validRows.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">No scores yet.</td></tr>`;
-                    return;
-                }
-                validRows.sort((a, b) => b.score - a.score);
-                tbody.innerHTML = validRows.map((row, i) => {
-                    const rank = i + 1;
-                    let goldClass = rank === 1 ? 'gold-row' : '';
-                    let trophy = rank === 1 ? '🏆 ' : (rank === 2 ? '🥈 ' : (rank === 3 ? '🥉 ' : ''));
-                    return `<tr class="${goldClass}"><td class="rank-cell">${rank}</td><td>${trophy}${row.name}</td><td style="text-align:right; font-weight:bold;">${row.score}</td></tr>`;
-                }).join('');
-                document.getElementById('last-updated').innerText = 'Last updated: ' + new Date().toLocaleTimeString();
+                return keyMap;
             } catch (e) {
-                console.log("Could not load leaderboard", e);
-                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">Leaderboard unavailable.</td></tr>`;
+                console.warn("No answer key found yet or error", e);
+                return {};
             }
         }
 
@@ -875,28 +848,12 @@
             container.innerHTML = '<div style="text-align:center; padding:20px;">Checking for official answers...</div>';
 
             try {
-                // Fetch AnswerKey sheet
-                const data = await fetchSheetData('AnswerKey'); // Created by logic
-                const rows = data.table.rows;
-                const keyMap = {};
-                // Row 1 is header. c[0]=ID, c[1]=Answer
-
-                rows.forEach((r, i) => {
-                    if (i < 1) return;
-                    if (!r || !r.c) return;
-                    const qId = r.c[0] ? r.c[0].v : null;
-                    const ans = r.c[1] ? r.c[1].v : null;
-                    if (qId && ans) keyMap[qId] = ans;
-                });
+                const keyMap = await getAnswerKeyMap();
 
                 if (Object.keys(keyMap).length === 0) {
                     container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">No answers released yet. Stay tuned!</div>';
                     return;
                 }
-
-                // Now match with Question Texts which we have in questionsData?
-                // If questionsData is empty (if finding answers first), we need to load questions.
-                // Assuming questions are loaded first.
 
                 let html = '';
                 questionsData.forEach(q => {
@@ -922,6 +879,21 @@
                 console.error(e);
                 container.innerHTML = '<div style="text-align:center; padding:20px;">Could not load answers.</div>';
             }
+        }
+
+        // ADMIN RENDER
+        async function renderAdminQuestions() {
+            const container = document.getElementById('admin-questions-container');
+            container.innerHTML = '<div style="padding:20px; text-align:center;">Loading current results...</div>';
+
+            // Fetch existing state
+            const keyMap = await getAnswerKeyMap();
+
+            let html = '';
+            questionsData.forEach(q => {
+                html += renderQuestion(q.id, q.text, q.options, true, keyMap[q.id]);
+            });
+            container.innerHTML = html;
         }
 
         // --- SUBMISSION ---
