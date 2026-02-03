@@ -495,8 +495,10 @@
 
             <form id="prop-bets-form" onsubmit="submitBets(event)">
                 <div class="question-card" style="border-color: var(--accent);">
-                    <div class="q-title" style="color: var(--accent);">YOUR NAME</div>
-                    <input type="text" name="name" class="text-input" placeholder="Enter your full name" required>
+                    <div class="q-title" style="color: var(--accent);">PLAYER INFO</div>
+                    <input type="text" name="name" class="text-input" placeholder="Full Name" required
+                        style="margin-bottom:12px;">
+                    <input type="email" name="email" class="text-input" placeholder="Email (Unique ID)" required>
                 </div>
 
                 <div id="questions-container">
@@ -504,7 +506,7 @@
                 </div>
 
                 <div style="height: 20px;"></div>
-                <button type="submit" id="submit-btn" class="submit-btn" disabled>Loading...</button>
+                <button type="submit" id="submit-btn" class="submit-btn" disabled>LOCK IN BETS 🔒</button>
             </form>
         </div>
 
@@ -529,7 +531,41 @@
             </div>
             <div style="text-align:center; color:#666; font-size:0.8rem; margin-top:20px;" id="last-updated"></div>
         </div>
+
+        <!-- ADMIN TAB (Hidden by default) -->
+        <div id="admin-tab" class="tab-content">
+            <div id="admin-login-view">
+                <div class="question-card" style="text-align:center;">
+                    <h3>ADMIN LOGIN</h3>
+                    <p style="color:var(--text-muted); margin-bottom:20px;">Enter password to access Answer Key</p>
+                    <input type="password" id="admin-pass" class="text-input" placeholder="Password"
+                        style="margin-bottom:15px; text-align:center;">
+                    <button onclick="checkAdminLogin()" class="submit-btn" style="padding:15px;">LOGIN</button>
+                </div>
+            </div>
+
+            <div id="admin-dashboard-view" style="display:none;">
+                <div class="section-header" style="background: var(--patriots-red); color: white; border-color: white;">
+                    ⚠️ ADMIN MODE: SUBMIT ANSWER KEY
+                </div>
+                <!-- Simplified Admin Form -->
+                <form id="admin-form" onsubmit="submitAdminKey(event)">
+                    <div id="admin-questions-container"></div>
+                    <div style="height:20px;"></div>
+                    <button type="submit" class="submit-btn" style="background: var(--patriots-red);">UPDATE ANSWERS
+                        🔑</button>
+                </form>
+            </div>
+        </div>
+
     </div>
+
+    <!-- ADMIN FOOTER LINK -->
+    <footer style="text-align:center; padding:30px; color:#333;">
+        <button onclick="switchTab('admin')"
+            style="background:none; border:none; color:#444; font-size:0.8rem; cursor:pointer; text-decoration:underline;">Admin
+            Login</button>
+    </footer>
 
     <!-- TOAST NOTIFICATION -->
     <div id="toast" class="toast">
@@ -540,12 +576,12 @@
     <script>
         // CONFIG
         const SHEET_ID = '1t44Fuvdb81u6lhouktREDtdgOCIs2dAh6faNYjX-rbM';
-        // const SHEET_NAME_QUESTIONS = 'Printable Prop Bets Sheet'; // Previous name
         const SHEET_NAME_QUESTIONS = 'Printable Prop Bets Sheet';
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxlvaNjMgMEsxzTg8MPZCFVb1F1Y2zMd8WJdeQOw8vCkUfCp1pLvpnEZv2AyYYoA4r9/exec';
+        const ADMIN_PASS = 'sb2026';
 
         // STATE
-        let questions = [];
+        let questionsData = []; // Store for admin use
 
         // INIT
         window.addEventListener('DOMContentLoaded', () => {
@@ -560,29 +596,38 @@
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
 
-            document.getElementById(tab + '-tab').classList.add('active');
-            document.querySelector(`button[onclick="switchTab('${tab}')"]`).classList.add('active');
+            const tabBtn = document.querySelector(`button[onclick="switchTab('${tab}')"]`);
+            if (tab !== 'admin' && tabBtn) {
+                tabBtn.classList.add('active');
+            }
+
+            const tabContent = document.getElementById(tab + '-tab');
+            if (tabContent) tabContent.classList.add('active');
 
             if (tab === 'leaderboard') loadLeaderboard();
+        }
+
+        function checkAdminLogin() {
+            const pass = document.getElementById('admin-pass').value;
+            if (pass === ADMIN_PASS) {
+                document.getElementById('admin-login-view').style.display = 'none';
+                document.getElementById('admin-dashboard-view').style.display = 'block';
+                renderAdminQuestions();
+                showToast('Admin Access Granted', 'success');
+            } else {
+                showToast('Incorrect Password', 'error');
+            }
         }
 
         // --- DATA LOADING ---
 
         async function fetchSheetData(sheetName) {
-            // Using JSON output with headers=0 to prevent row-swallowing
             const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=0&sheet=${encodeURIComponent(sheetName)}`;
             const text = await fetch(url).then(r => r.text());
-
-            // Fix: remove GVIZ callback wrapper
-            // Response format: /*O_o*/\ngoogle.visualization.Query.setResponse({...});
-            // We use regex to extract the JSON object.
-
             const start = text.indexOf('{');
             const end = text.lastIndexOf('}');
             if (start === -1 || end === -1) throw new Error('Invalid GVIZ response');
-
-            const jsonText = text.substring(start, end + 1);
-            return JSON.parse(jsonText);
+            return JSON.parse(text.substring(start, end + 1));
         }
 
         async function loadQuestions() {
@@ -600,40 +645,37 @@
 
                 let html = '';
                 let qIndex = 1;
+                questionsData = [];
 
-                // Iterate all rows.
-                // Note: With headers=0, Row 0 is the first row of data.
                 for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
                     if (!row || !row.c) continue;
 
-                    // Col A is c[0]. Col B is c[1], etc.
-                    // c[x] can be null if empty.
                     const cellA = row.c[0] ? (row.c[0].v || '') : '';
-                    if (!cellA) continue; // Empty row logic
+                    if (!cellA) continue;
 
-                    // Check if it's a question (Starts with a number followed by dot or paranthesis)
+                    // Question Detection
                     const isQuestion = /^\d+[\.)]/.test(String(cellA).trim());
 
                     if (isQuestion) {
                         const qText = cellA;
 
-                        // Options: Iterate c[1] onwards
+                        // Options
                         const options = [];
                         for (let j = 1; j < row.c.length; j++) {
                             const val = row.c[j] ? (row.c[j].v || '') : '';
                             if (val) options.push(val);
                         }
 
+                        // Store for Admin View
+                        questionsData.push({ id: qIndex, text: qText, options: options });
+
+                        // Render User View
                         html += renderQuestion(qIndex, qText, options);
                         qIndex++;
                     } else {
-                        // Header logic
-                        // Ignore metadata or links
                         if (String(cellA).includes('http') || String(cellA).includes('Google form')) continue;
-                        // Avoid short/empty headers
                         if (String(cellA).length < 3) continue;
-
                         html += `<div class="section-header">${cellA}</div>`;
                     }
                 }
@@ -644,15 +686,17 @@
 
             } catch (err) {
                 console.error(err);
-                showToast('Error loading questions. Refresh page.', 'error');
-                container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--error);">Failed to load questions.<br><small>${err.message}</small></div>`;
+                showToast('Error loading questions.', 'error');
+                container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--error);">Failed to load questions.</div>`;
             } finally {
                 loader.style.display = 'none';
             }
         }
 
-        function renderQuestion(id, title, options) {
+        function renderQuestion(id, title, options, isAdmin = false) {
             let optionsHtml = '';
+            // For admin, prefix keys differently
+            const namePrefix = isAdmin ? 'admin_q' : 'q';
 
             if (options.length > 0) {
                 optionsHtml = `<div class="options-grid">`;
@@ -660,46 +704,48 @@
                     const valsafe = String(opt).replace(/"/g, '&quot;');
                     optionsHtml += `
                         <label>
-                            <input type="radio" name="q${id}" value="${valsafe}" required>
-                            <div class="option-label">${opt}</div>
+                            <input type="radio" name="${namePrefix}${id}" value="${valsafe}" ${!isAdmin ? 'required' : ''}>
+                            <div class="option-label" ${isAdmin ? 'style="font-size:0.8rem; min-height:40px; padding:10px;"' : ''}>${opt}</div>
                         </label>
                     `;
                 });
                 optionsHtml += `</div>`;
             } else {
-                optionsHtml = `<input type="text" name="q${id}" class="text-input" placeholder="Your Answer">`;
+                optionsHtml = `<input type="text" name="${namePrefix}${id}" class="text-input" placeholder="Answer">`;
             }
 
             return `
-                <div class="question-card">
-                    <div class="q-title">${title}</div>
+                <div class="question-card" ${isAdmin ? 'style="padding:15px; margin-bottom:10px;"' : ''}>
+                    <div class="q-title" ${isAdmin ? 'style="font-size:0.9rem; margin-bottom:10px;"' : ''}>${title}</div>
                     ${optionsHtml}
                 </div>
             `;
         }
 
+        function renderAdminQuestions() {
+            const container = document.getElementById('admin-questions-container');
+            if (container.innerHTML) return;
+
+            let html = '';
+            questionsData.forEach(q => {
+                html += renderQuestion(q.id, q.text, q.options, true);
+            });
+            container.innerHTML = html;
+        }
+
         async function loadLeaderboard() {
             const tbody = document.getElementById('leaderboard-body');
             try {
-                // Try fetching "Scores"
                 const data = await fetchSheetData('Scores');
                 const rows = data.table.rows;
-
-                // Assuming standard leaderboard: Rank (maybe), Name, Score
-                // Let's assume user names are in Col B (index 1), scores in Col C (index 2)?
-                // Or maybe A=Rank, B=Name, C=Score. 
-                // Let's inspect rows.
-
                 const validRows = [];
                 rows.forEach((r, i) => {
-                    if (i < 1) return; // Skip potential header if it exists
+                    if (i < 1) return;
                     if (!r.c) return;
 
-                    // Fallback logic: check typical columns
                     const name = r.c[1] ? r.c[1].v : (r.c[0] ? r.c[0].v : '');
                     const score = r.c[2] ? r.c[2].v : (r.c[1] ? r.c[1].v : 0);
 
-                    // Simple validation: Name should be string, Score number
                     if (name && typeof name === 'string' && name !== 'Name') {
                         validRows.push({ name, score: Number(score) || 0 });
                     }
@@ -709,26 +755,14 @@
                     tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">No scores yet.</td></tr>`;
                     return;
                 }
-
-                // Sort
                 validRows.sort((a, b) => b.score - a.score);
-
                 tbody.innerHTML = validRows.map((row, i) => {
                     const rank = i + 1;
                     let goldClass = rank === 1 ? 'gold-row' : '';
                     let trophy = rank === 1 ? '🏆 ' : (rank === 2 ? '🥈 ' : (rank === 3 ? '🥉 ' : ''));
-
-                    return `
-                        <tr class="${goldClass}">
-                            <td class="rank-cell">${rank}</td>
-                            <td>${trophy}${row.name}</td>
-                            <td style="text-align:right; font-weight:bold;">${row.score}</td>
-                        </tr>
-                    `;
+                    return `<tr class="${goldClass}"><td class="rank-cell">${rank}</td><td>${trophy}${row.name}</td><td style="text-align:right; font-weight:bold;">${row.score}</td></tr>`;
                 }).join('');
-
                 document.getElementById('last-updated').innerText = 'Last updated: ' + new Date().toLocaleTimeString();
-
             } catch (e) {
                 console.log("Could not load leaderboard", e);
                 tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">Leaderboard unavailable.</td></tr>`;
@@ -744,27 +778,54 @@
             btn.innerText = 'Submitting...';
 
             const formData = new FormData(e.target);
-            const data = {};
+            const data = { type: 'bet' };
             formData.forEach((value, key) => data[key] = value);
 
-            // POST to Apps Script
+            sendData(data, () => {
+                localStorage.setItem('sb_lix_submitted', 'true');
+                showToast('Bets Locked In! 🏈', 'success');
+                showSubmittedState();
+            }, () => {
+                btn.disabled = false;
+                btn.innerText = 'LOCK IN BETS 🔒';
+            });
+        }
+
+        function submitAdminKey(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = { type: 'admin' };
+            formData.forEach((value, key) => data[key] = value);
+
+            if (!confirm('Are you sure you want to update the official Answer Key? This will update scores.')) return;
+
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerText;
+            btn.innerText = 'Updating...';
+            btn.disabled = true;
+
+            sendData(data, () => {
+                showToast('Answer Key Updated! Scores Recalculating.', 'success');
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }, () => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        function sendData(data, onSuccess, onError) {
             fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams(data)
             })
-                .then(() => {
-                    localStorage.setItem('sb_lix_submitted', 'true');
-                    showToast('Bets Locked In! 🏈', 'success');
-                    showSubmittedState();
-                })
+                .then(() => { onSuccess(); })
                 .catch(err => {
-                    showToast('Error submitting bets. Try again.', 'error');
-                    btn.disabled = false;
-                    btn.innerText = 'LOCK IN BETS 🔒';
+                    console.error(err);
+                    showToast('Submission Failed. Try again.', 'error');
+                    if (onError) onError();
                 });
         }
 
