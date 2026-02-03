@@ -391,7 +391,7 @@
                 </div>
 
                 <div style="height: 20px;"></div>
-                <button type="submit" id="submit-btn" class="submit-btn">LOCK IN BETS 🔒</button>
+                <button type="submit" id="submit-btn" class="submit-btn" disabled>Loading...</button>
             </form>
         </div>
 
@@ -427,8 +427,8 @@
     <script>
         // CONFIG
         const SHEET_ID = '1t44Fuvdb81u6lhouktREDtdgOCIs2dAh6faNYjX-rbM';
+        // const SHEET_NAME_QUESTIONS = 'Printable Prop Bets Sheet'; // Previous name
         const SHEET_NAME_QUESTIONS = 'Printable Prop Bets Sheet';
-        const SHEET_NAME_SCORES = 'Scores'; // Or Submissions?
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxlvaNjMgMEsxzTg8MPZCFVb1F1Y2zMd8WJdeQOw8vCkUfCp1pLvpnEZv2AyYYoA4r9/exec';
 
         // STATE
@@ -455,79 +455,96 @@
 
         // --- DATA LOADING ---
 
-        function fetchSheetRecs(sheetName) {
-            // Using GVIZ for read-only public access without key
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-            return fetch(url).then(r => r.text());
+        async function fetchSheetData(sheetName) {
+            // Using JSON output with headers=0 to prevent row-swallowing
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=0&sheet=${encodeURIComponent(sheetName)}`;
+            const text = await fetch(url).then(r => r.text());
+
+            // Fix: remove GVIZ callback wrapper
+            // Response format: /*O_o*/\ngoogle.visualization.Query.setResponse({...});
+            // We use regex to extract the JSON object.
+
+            const start = text.indexOf('{');
+            const end = text.lastIndexOf('}');
+            if (start === -1 || end === -1) throw new Error('Invalid GVIZ response');
+
+            const jsonText = text.substring(start, end + 1);
+            return JSON.parse(jsonText);
         }
 
         async function loadQuestions() {
             const loader = document.getElementById('loader');
             const container = document.getElementById('questions-container');
+            const submitBtn = document.getElementById('submit-btn');
 
             loader.style.display = 'block';
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Loading...';
 
             try {
-                const csvText = await fetchSheetRecs(SHEET_NAME_QUESTIONS);
-                const rows = parseCSV(csvText);
-
-                // Expecting Rows:
-                // Row 1-4: Headers/Junk
-                // Row 5+: Content
-                // Col A: Question OR Header
-                // Col B-G: Options or Empty
+                const data = await fetchSheetData(SHEET_NAME_QUESTIONS);
+                const rows = data.table.rows;
 
                 let html = '';
                 let qIndex = 1;
 
-                // Start loop from index 4 (Row 5)
-                for (let i = 4; i < rows.length; i++) {
+                // Iterate all rows.
+                // Note: With headers=0, Row 0 is the first row of data.
+                for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
-                    if (!row || row.length === 0) continue;
+                    if (!row || !row.c) continue;
 
-                    const colA = cleanStr(row[0]);
-
-                    if (!colA) continue; // Empty row
+                    // Col A is c[0]. Col B is c[1], etc.
+                    // c[x] can be null if empty.
+                    const cellA = row.c[0] ? (row.c[0].v || '') : '';
+                    if (!cellA) continue; // Empty row logic
 
                     // Check if it's a question (Starts with a number followed by dot or paranthesis)
-                    const isQuestion = /^\d+[\.)]/.test(colA);
+                    const isQuestion = /^\d+[\.)]/.test(String(cellA).trim());
 
                     if (isQuestion) {
-                        // It's a question
-                        const qText = colA;
-                        // Get options (Col B onwards)
-                        const options = row.slice(1).map(cleanStr).filter(o => o);
+                        const qText = cellA;
+
+                        // Options: Iterate c[1] onwards
+                        const options = [];
+                        for (let j = 1; j < row.c.length; j++) {
+                            const val = row.c[j] ? (row.c[j].v || '') : '';
+                            if (val) options.push(val);
+                        }
 
                         html += renderQuestion(qIndex, qText, options);
                         qIndex++;
                     } else {
-                        // It's likely a section header (e.g. "Before Kickoff")
-                        // Ignore if it looks like metadata e.g. "Google form..."
-                        if (colA.includes('http') || colA.includes('Google form')) continue;
+                        // Header logic
+                        // Ignore metadata or links
+                        if (String(cellA).includes('http') || String(cellA).includes('Google form')) continue;
+                        // Avoid short/empty headers
+                        if (String(cellA).length < 3) continue;
 
-                        html += `<div class="section-header">${colA}</div>`;
+                        html += `<div class="section-header">${cellA}</div>`;
                     }
                 }
 
                 container.innerHTML = html;
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'LOCK IN BETS 🔒';
+
             } catch (err) {
                 console.error(err);
                 showToast('Error loading questions. Refresh page.', 'error');
+                container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--error);">Failed to load questions.<br><small>${err.message}</small></div>`;
             } finally {
                 loader.style.display = 'none';
             }
         }
 
         function renderQuestion(id, title, options) {
-            // If no options found, maybe it's a fill-in? 
-            // For now assuming all have options based on screenshot.
-
             let optionsHtml = '';
 
             if (options.length > 0) {
                 optionsHtml = `<div class="options-grid">`;
                 options.forEach(opt => {
-                    const valsafe = opt.replace(/"/g, '&quot;');
+                    const valsafe = String(opt).replace(/"/g, '&quot;');
                     optionsHtml += `
                         <label>
                             <input type="radio" name="q${id}" value="${valsafe}" required>
@@ -537,7 +554,6 @@
                 });
                 optionsHtml += `</div>`;
             } else {
-                // Fallback to text input if no options found but it was marked as question
                 optionsHtml = `<input type="text" name="q${id}" class="text-input" placeholder="Your Answer">`;
             }
 
@@ -552,33 +568,48 @@
         async function loadLeaderboard() {
             const tbody = document.getElementById('leaderboard-body');
             try {
-                // Try fetching "Scores" tab first, if fails, usually undefined.
-                // Note: If tab doesn't exist, GVIZ might return error or first tab.
-                const csvText = await fetchSheetRecs('Scores');
-                const rows = parseCSV(csvText);
+                // Try fetching "Scores"
+                const data = await fetchSheetData('Scores');
+                const rows = data.table.rows;
 
-                // Assuming standard leaderboard: Rank, Name, Score
-                // Row 1 = Headers
-                const dataRows = rows.slice(1).filter(r => r[0] && r[1]); // Filter empty
+                // Assuming standard leaderboard: Rank (maybe), Name, Score
+                // Let's assume user names are in Col B (index 1), scores in Col C (index 2)?
+                // Or maybe A=Rank, B=Name, C=Score. 
+                // Let's inspect rows.
 
-                if (dataRows.length === 0) {
+                const validRows = [];
+                rows.forEach((r, i) => {
+                    if (i < 1) return; // Skip potential header if it exists
+                    if (!r.c) return;
+
+                    // Fallback logic: check typical columns
+                    const name = r.c[1] ? r.c[1].v : (r.c[0] ? r.c[0].v : '');
+                    const score = r.c[2] ? r.c[2].v : (r.c[1] ? r.c[1].v : 0);
+
+                    // Simple validation: Name should be string, Score number
+                    if (name && typeof name === 'string' && name !== 'Name') {
+                        validRows.push({ name, score: Number(score) || 0 });
+                    }
+                });
+
+                if (validRows.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">No scores yet.</td></tr>`;
                     return;
                 }
 
-                tbody.innerHTML = dataRows.map((row, i) => {
-                    const rank = i + 1;
-                    const name = row[1] || 'Unknown'; // Adj index based on sheet
-                    const score = row[2] || '0';
+                // Sort
+                validRows.sort((a, b) => b.score - a.score);
 
+                tbody.innerHTML = validRows.map((row, i) => {
+                    const rank = i + 1;
                     let goldClass = rank === 1 ? 'gold-row' : '';
                     let trophy = rank === 1 ? '🏆 ' : (rank === 2 ? '🥈 ' : (rank === 3 ? '🥉 ' : ''));
 
                     return `
                         <tr class="${goldClass}">
                             <td class="rank-cell">${rank}</td>
-                            <td>${trophy}${name}</td>
-                            <td style="text-align:right; font-weight:bold;">${score}</td>
+                            <td>${trophy}${row.name}</td>
+                            <td style="text-align:right; font-weight:bold;">${row.score}</td>
                         </tr>
                     `;
                 }).join('');
@@ -587,7 +618,6 @@
 
             } catch (e) {
                 console.log("Could not load leaderboard", e);
-                // Fail silently or show message
                 tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">Leaderboard unavailable.</td></tr>`;
             }
         }
@@ -604,22 +634,16 @@
             const data = {};
             formData.forEach((value, key) => data[key] = value);
 
-            // Send to Google Apps Script
-            // We use 'no-cors' mode because GAPPS script redirects, which fetch blocks in strict cors. 
-            // However, with 'no-cors' we can't read response. 
-            // Standard hack: Submit form to hidden iframe or just trust it.
-            // BETTER: Use URLSearchParams and POST.
-
+            // POST to Apps Script
             fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors', // Important for Google Scripts
+                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: new URLSearchParams(data)
             })
                 .then(() => {
-                    // Since no-cors returns opaque response, we assume success if no network error.
                     localStorage.setItem('sb_lix_submitted', 'true');
                     showToast('Bets Locked In! 🏈', 'success');
                     showSubmittedState();
@@ -638,17 +662,8 @@
         }
 
         function resetSubmission() {
-            // For testing or multiple entries
             document.getElementById('prop-bets-form').style.display = 'block';
             document.getElementById('already-submitted').style.display = 'none';
-        }
-
-
-        // --- UTILS ---
-
-        function cleanStr(str) {
-            if (!str) return '';
-            return str.replace(/^"|"$/g, '').trim(); // Remove CSV quotes
         }
 
         function showToast(msg, type) {
@@ -656,44 +671,6 @@
             document.getElementById('toast-msg').innerText = msg;
             t.className = `toast show ${type}`;
             setTimeout(() => t.classList.remove('show'), 3000);
-        }
-
-        // Simple CSV Parser (handles quoted commas roughly)
-        function parseCSV(text) {
-            const rows = [];
-            let row = [];
-            let inQuote = false;
-            let currentCell = '';
-
-            for (let i = 0; i < text.length; i++) {
-                const char = text[i];
-                const nextChar = text[i + 1];
-
-                if (char === '"') {
-                    if (inQuote && nextChar === '"') {
-                        currentCell += '"';
-                        i++; // Skip escape
-                    } else {
-                        inQuote = !inQuote;
-                    }
-                } else if (char === ',' && !inQuote) {
-                    row.push(currentCell);
-                    currentCell = '';
-                } else if ((char === '\r' || char === '\n') && !inQuote) {
-                    if (currentCell || row.length > 0) row.push(currentCell);
-                    if (row.length > 0) rows.push(row);
-                    row = [];
-                    currentCell = '';
-                    if (char === '\r' && nextChar === '\n') i++;
-                } else {
-                    currentCell += char;
-                }
-            }
-            if (currentCell || row.length > 0) {
-                row.push(currentCell);
-                rows.push(row);
-            }
-            return rows;
         }
     </script>
 </body>
