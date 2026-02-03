@@ -471,6 +471,7 @@
 
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('bets')">PLACE BETS</button>
+        <button class="tab-btn" onclick="switchTab('answers')">ANSWERS</button>
         <button class="tab-btn" onclick="switchTab('leaderboard')">LEADERBOARD</button>
     </div>
 
@@ -508,6 +509,16 @@
                 <div style="height: 20px;"></div>
                 <button type="submit" id="submit-btn" class="submit-btn" disabled>LOCK IN BETS 🔒</button>
             </form>
+        </div>
+
+        <!-- LIVE ANSWERS TAB -->
+        <div id="answers-tab" class="tab-content">
+            <div style="text-align:center; padding:10px; color:var(--text-muted); font-size:0.9rem;">
+                Official answers released live by Admin
+            </div>
+            <div id="live-answers-container">
+                <!-- Injected JS -->
+            </div>
         </div>
 
         <!-- LEADERBOARD TAB -->
@@ -605,6 +616,7 @@
             if (tabContent) tabContent.classList.add('active');
 
             if (tab === 'leaderboard') loadLeaderboard();
+            if (tab === 'answers') loadLiveAnswers();
         }
 
         function checkAdminLogin() {
@@ -739,14 +751,18 @@
                 const data = await fetchSheetData('Scores');
                 const rows = data.table.rows;
                 const validRows = [];
+                // Look for header row to identify columns? 
+                // Let's assume Rank=A, Name=B, Score=C. Apps Script writes: Rank, Name, Score.
+
                 rows.forEach((r, i) => {
                     if (i < 1) return;
-                    if (!r.c) return;
+                    if (!r || !r.c) return;
 
-                    const name = r.c[1] ? r.c[1].v : (r.c[0] ? r.c[0].v : '');
-                    const score = r.c[2] ? r.c[2].v : (r.c[1] ? r.c[1].v : 0);
+                    // Column Index 1 = Name, Column Index 2 = Score
+                    const name = r.c[1] ? r.c[1].v : '';
+                    const score = r.c[2] ? r.c[2].v : 0;
 
-                    if (name && typeof name === 'string' && name !== 'Name') {
+                    if (name && String(name).toLowerCase() !== 'name') {
                         validRows.push({ name, score: Number(score) || 0 });
                     }
                 });
@@ -766,6 +782,60 @@
             } catch (e) {
                 console.log("Could not load leaderboard", e);
                 tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">Leaderboard unavailable.</td></tr>`;
+            }
+        }
+
+        async function loadLiveAnswers() {
+            const container = document.getElementById('live-answers-container');
+            container.innerHTML = '<div style="text-align:center; padding:20px;">Checking for official answers...</div>';
+
+            try {
+                // Fetch AnswerKey sheet
+                const data = await fetchSheetData('AnswerKey'); // Created by logic
+                const rows = data.table.rows;
+                const keyMap = {};
+                // Row 1 is header. c[0]=ID, c[1]=Answer
+
+                rows.forEach((r, i) => {
+                    if (i < 1) return;
+                    if (!r || !r.c) return;
+                    const qId = r.c[0] ? r.c[0].v : null;
+                    const ans = r.c[1] ? r.c[1].v : null;
+                    if (qId && ans) keyMap[qId] = ans;
+                });
+
+                if (Object.keys(keyMap).length === 0) {
+                    container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">No answers released yet. Stay tuned!</div>';
+                    return;
+                }
+
+                // Now match with Question Texts which we have in questionsData?
+                // If questionsData is empty (if finding answers first), we need to load questions.
+                // Assuming questions are loaded first.
+
+                let html = '';
+                questionsData.forEach(q => {
+                    if (keyMap[q.id]) {
+                        html += `
+                            <div class="question-card" style="border-left: 5px solid var(--success);">
+                                <div class="q-title" style="margin-bottom:10px;">${q.id}. ${q.text}</div>
+                                <div style="font-weight:bold; color:var(--success); font-size:1.1rem;">
+                                    ✅ ${keyMap[q.id]}
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+
+                if (!html) {
+                    container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">No answers found for current questions.</div>';
+                } else {
+                    container.innerHTML = html;
+                }
+
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = '<div style="text-align:center; padding:20px;">Could not load answers.</div>';
             }
         }
 
