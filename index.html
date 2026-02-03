@@ -587,17 +587,22 @@
                 <!-- Simplified Admin Form -->
                 <form id="admin-form" onsubmit="submitAdminKey(event)">
                     <div id="admin-questions-container"></div>
-                    <div style="height:20px;"></div>
-                    <button type="submit" class="submit-btn" style="background: var(--patriots-red);">UPDATE LIVE
-                        RESULTS 📡</button>
+
+                    <!-- STICKY FOOTER -->
+                    <div
+                        style="position:fixed; bottom:0; left:0; width:100%; padding:15px; background:rgba(20,20,20,0.95); border-top:1px solid #333; backdrop-filter:blur(10px); z-index:900; display:flex; justify-content:center; box-shadow:0 -10px 30px rgba(0,0,0,0.5);">
+                        <button type="submit" class="submit-btn"
+                            style="background: var(--patriots-red); margin-bottom:0; width:100%; max-width:600px; box-shadow: 0 0 20px rgba(255,0,0,0.3);">UPDATE
+                            LIVE RESULTS 📡</button>
+                    </div>
                 </form>
             </div>
         </div>
 
     </div>
 
-    <!-- ADMIN FOOTER LINK -->
-    <footer style="text-align:center; padding:30px; color:#333;">
+    <!-- ADMIN FOOTER LINK (with padding for sticky footer) -->
+    <footer style="text-align:center; padding:30px; padding-bottom:100px; color:#333;">
         <button onclick="switchTab('admin')"
             style="background:none; border:none; color:#444; font-size:0.8rem; cursor:pointer; text-decoration:underline;">Admin
             Login</button>
@@ -739,6 +744,7 @@
 
                 let html = '';
                 let qIndex = 1;
+                let currentSection = 'General'; // Default section
                 questionsData = [];
 
                 for (let i = 0; i < rows.length; i++) {
@@ -748,7 +754,7 @@
                     const cellA = row.c[0] ? (row.c[0].v || '') : '';
                     if (!cellA) continue;
 
-                    // Question Detection
+                    // Question Detection (Starts with digit and .)
                     const isQuestion = /^\d+[\.)]/.test(String(cellA).trim());
 
                     if (isQuestion) {
@@ -761,8 +767,8 @@
                             if (val) options.push(val);
                         }
 
-                        // Store for Admin View
-                        questionsData.push({ id: qIndex, text: qText, options: options });
+                        // Store for Admin View (WITH SECTION)
+                        questionsData.push({ id: qIndex, text: qText, options: options, section: currentSection });
 
                         // Render User View
                         html += renderQuestion(qIndex, qText, options);
@@ -770,6 +776,9 @@
                     } else {
                         if (String(cellA).includes('http') || String(cellA).includes('Google form')) continue;
                         if (String(cellA).length < 3) continue;
+
+                        // It's a header
+                        currentSection = cellA;
                         html += `<div class="section-header">${cellA}</div>`;
                     }
                 }
@@ -889,10 +898,34 @@
             // Fetch existing state
             const keyMap = await getAnswerKeyMap();
 
-            let html = '';
+            // Group by Section
+            const sections = {};
             questionsData.forEach(q => {
-                html += renderQuestion(q.id, q.text, q.options, true, keyMap[q.id]);
+                if (!sections[q.section]) sections[q.section] = [];
+                sections[q.section].push(q);
             });
+
+            let html = '';
+
+            for (const sectionName in sections) {
+                html += `
+                <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;">
+                    <summary style="padding:15px; background:rgba(255,255,255,0.05); font-family:'Oswald'; cursor:pointer; font-size:1.1rem; color:var(--accent);">
+                        ${sectionName}
+                    </summary>
+                    <div style="padding:10px;">
+                `;
+
+                sections[sectionName].forEach(q => {
+                    html += renderQuestion(q.id, q.text, q.options, true, keyMap[q.id]);
+                });
+
+                html += `</div></details>`;
+            }
+
+            // Add padding for sticky footer
+            html += '<div style="height:80px;"></div>';
+
             container.innerHTML = html;
         }
 
