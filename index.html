@@ -628,22 +628,41 @@
             // loadLeaderboard(); // Init Load
         });
 
+        const ADMIN_EMAILS = ['acmaaddi@gmail.com'];
+
         // GOOGLE SIGN IN
         function handleCredentialResponse(response) {
             try {
                 const responsePayload = parseJwt(response.credential);
+                const email = responsePayload.email;
 
                 // Update UI
                 document.getElementById('g_id_signin_box').style.display = 'none';
                 document.getElementById('user-profile').style.display = 'block';
 
                 document.getElementById('user-name').innerText = responsePayload.name;
-                document.getElementById('user-email').innerText = responsePayload.email;
+                document.getElementById('user-email').innerText = email;
                 document.getElementById('user-pic').src = responsePayload.picture;
 
                 // Set Inputs
                 document.getElementById('input-name').value = responsePayload.name;
-                document.getElementById('input-email').value = responsePayload.email;
+                document.getElementById('input-email').value = email;
+
+                // Auto-Admin Access
+                if (ADMIN_EMAILS.includes(email)) {
+                    document.getElementById('admin-tab').classList.add('active'); // Unhide if needed or just enable access
+                    // Better: Unlock the Admin View directly without needing footer login
+                    document.getElementById('admin-login-view').style.display = 'none';
+                    document.getElementById('admin-dashboard-view').style.display = 'block';
+                    renderAdminQuestions();
+
+                    // Show a special Admin Button in header or footer?
+                    // For now, let's just toast and maybe show the tab if it was hidden (it's hidden by CSS but accessible via footer).
+                    // Actually, the footer button switches to 'admin' tab.
+                    // Let's just make sure if they visit the admin tab, they are already logged in.
+
+                    showToast('👋 Welcome Admin ' + responsePayload.name, 'success');
+                }
 
             } catch (e) {
                 console.error("Sign In Error", e);
