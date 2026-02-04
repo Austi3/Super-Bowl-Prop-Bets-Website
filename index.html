@@ -801,18 +801,22 @@
 
                 // Auto-Admin Access
                 if (ADMIN_EMAILS.includes(email)) {
-                    document.getElementById('admin-tab').classList.add('active'); // Unhide if needed or just enable access
-                    // Better: Unlock the Admin View directly without needing footer login
-                    document.getElementById('admin-login-view').style.display = 'none';
-                    document.getElementById('admin-dashboard-view').style.display = 'block';
-                    renderAdminQuestions();
+                    isAdmin = true; // Set global flag
 
-                    // Show a special Admin Button in header or footer?
-                    // For now, let's just toast and maybe show the tab if it was hidden (it's hidden by CSS but accessible via footer).
-                    // Actually, the footer button switches to 'admin' tab.
-                    // Let's just make sure if they visit the admin tab, they are already logged in.
+                    // Unlock Admin/Edit Button in Answers Tab
+                    const adminHeader = document.getElementById('admin-controls-header');
+                    if (adminHeader) adminHeader.style.display = 'block';
+
+                    // Optional: Auto-refresh answers to show selector immediately if on that tab
+                    if (document.getElementById('answers-tab').classList.contains('active')) {
+                        loadLiveAnswers();
+                    }
 
                     showToast('👋 Welcome Admin ' + responsePayload.name, 'success');
+                } else {
+                    isAdmin = false;
+                    const adminHeader = document.getElementById('admin-controls-header');
+                    if (adminHeader) adminHeader.style.display = 'none';
                 }
 
             } catch (e) {
@@ -1564,6 +1568,26 @@
                     showToast('Submission Failed. Try again.', 'error');
                     if (onError) onError();
                 });
+        }
+
+        function toggleAdminEditMode() {
+            const viewMode = document.getElementById('answers-view-mode');
+            const dashboardMode = document.getElementById('admin-dashboard-view');
+            const header = document.getElementById('admin-controls-header');
+
+            if (dashboardMode.style.display === 'none') {
+                // Switch to Edit Mode
+                viewMode.style.display = 'none';
+                dashboardMode.style.display = 'block';
+                header.style.display = 'none';
+                renderAdminQuestions();
+            } else {
+                // Switch to View Mode
+                viewMode.style.display = 'block';
+                dashboardMode.style.display = 'none';
+                header.style.display = 'block';
+                loadLiveAnswers();
+            }
         }
 
         function showSubmittedState() {
