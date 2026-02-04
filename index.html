@@ -84,7 +84,7 @@
         .header-content {
             background: var(--bg-dark);
             /* match body */
-            padding: 15px;
+            padding: 20px 15px;
             text-align: center;
             border-bottom: 3px solid transparent;
             border-image: var(--gradient-primary) 1;
@@ -135,8 +135,10 @@
             background: var(--bg-card);
             padding: 10px 15px;
             gap: 15px;
-            position: relative;
-            z-index: 90;
+            position: sticky;
+            top: 110px;
+            /* Sits below main sticky header */
+            z-index: 95;
             border-bottom: 1px solid #333;
         }
 
@@ -455,6 +457,56 @@
             border-color: var(--error);
             color: var(--error);
         }
+
+        /* USER RESULT HIGHLIGHTING */
+        .correct-answer {
+            background: rgba(46, 204, 113, 0.2) !important;
+            border: 1px solid #2ecc71 !important;
+            position: relative;
+        }
+
+        .correct-answer::after {
+            content: '✅';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .wrong-answer {
+            background: rgba(231, 76, 60, 0.2) !important;
+            border: 1px solid #e74c3c !important;
+            position: relative;
+        }
+
+        .wrong-answer::after {
+            content: '❌ Your Answer';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .missed-correct-answer {
+            border: 2px dashed #3498db !important;
+            background: rgba(52, 152, 219, 0.1) !important;
+            position: relative;
+        }
+
+        .missed-correct-answer::after {
+            content: 'Correct Answer';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+            color: #3498db;
+            font-weight: bold;
+            font-family: 'Oswald';
+        }
     </style>
 </head>
 
@@ -486,6 +538,24 @@
 
         <!-- BETS TAB -->
         <div id="bets-tab" class="tab-content active">
+            <!-- Removed padding-top as the sticky header now takes space in flow -->
+
+            <!-- STICKY PROGRESS BAR -->
+            <div id="sticky-header"
+                style="position:sticky; top:184px; width:100%; height:55px; background:rgba(20,20,20,0.95); z-index:90; border-bottom:1px solid #333; backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:space-between; padding:0 20px; box-shadow:0 4px 10px rgba(0,0,0,0.3); transition:all 0.3s; margin-bottom: 20px;">
+                <div style="font-family:'Oswald'; font-size:1.1rem; color:white;">
+                    <span id="progress-text" style="color:var(--accent);">0/0</span> <span
+                        style="font-size:0.9rem; color:#888;">BETS PLACED</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" onclick="highlightMissing()"
+                        style="background:none; border:1px solid #444; color:#aaa; font-size:0.8rem; padding:5px 10px; border-radius:5px; cursor:pointer;">Highlight
+                        Missing</button>
+                    <button onclick="submitBets(event)" id="sticky-submit-btn" class="submit-btn"
+                        style="width:auto; padding:8px 20px; font-size:1rem; margin:0;" disabled>SAVE BETS 💾</button>
+                </div>
+            </div>
+
             <div id="already-submitted"
                 style="display:none; text-align: center; padding: 40px; color: var(--text-muted);">
                 <div style="font-size: 3rem; margin-bottom: 20px;">✅</div>
@@ -496,8 +566,8 @@
                     another response</button>
             </div>
 
-            <form id="prop-bets-form" onsubmit="submitBets(event)">
-                <div class="question-card" style="border-color: var(--accent);">
+            <form id="prop-bets-form" onchange="updateProgress()" onsubmit="submitBets(event)">
+                <div class="question-card" style="border-color: var(--accent); margin-top:10px;">
                     <div class="q-title" style="color: var(--accent);">PLAYER INFO</div>
 
                     <!-- Google Sign In / User Profile -->
@@ -511,7 +581,8 @@
                             Out</button>
                     </div>
 
-                    <div id="g_id_signin_box" style="display:flex; justify-content:center; margin-bottom:15px;">
+                    <div id="g_id_signin_box"
+                        style="display:flex; flex-direction:column; align-items:center; margin-bottom:15px;">
                         <div id="g_id_onload"
                             data-client_id="752076805217-5u1eersgq2hrpblas0l0htr62lsfhad8.apps.googleusercontent.com"
                             data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse"
@@ -520,6 +591,38 @@
                         <div class="g_id_signin" data-type="standard" data-shape="pill" data-theme="outline"
                             data-text="signin_with" data-size="large" data-logo_alignment="left">
                         </div>
+
+                        <!-- Guest Toggle -->
+                        <div id="guest-signin-toggle" style="text-align:center; margin-top:20px; width:100%;">
+                            <div style="color:var(--text-muted); font-size:0.8rem; margin-bottom:10px;">— OR —</div>
+                            <button type="button" onclick="showGuestLogin()"
+                                style="background:transparent; border:1px solid #444; color:#aaa; padding:8px 15px; border-radius:20px; cursor:pointer; font-size:0.9rem; transition:all 0.2s;">
+                                Continue as Guest
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Guest Form -->
+                    <div id="guest-signin-form"
+                        style="display:none; margin-top:15px; border-top:1px solid rgba(255,255,255,0.05); padding-top:15px;">
+                        <div style="margin-bottom:10px;">
+                            <label
+                                style="display:block; color:#aaa; font-size:0.8rem; margin-bottom:5px; padding-left:5px;">Your
+                                Name</label>
+                            <input type="text" id="guest-name" class="text-input" placeholder="e.g. Tom Brady"
+                                style="padding:12px;">
+                        </div>
+                        <div style="margin-bottom:15px;">
+                            <label
+                                style="display:block; color:#aaa; font-size:0.8rem; margin-bottom:5px; padding-left:5px;">Email
+                                Address</label>
+                            <input type="email" id="guest-email" class="text-input" placeholder="name@example.com"
+                                style="padding:12px;">
+                        </div>
+                        <button type="button" onclick="handleGuestLogin()" class="submit-btn"
+                            style="padding:12px; font-size:1rem; margin-bottom:10px;">START BETTING</button>
+                        <button type="button" onclick="cancelGuestLogin()"
+                            style="background:none; border:none; color:#666; width:100%; cursor:pointer; text-decoration:underline;">Cancel</button>
                     </div>
 
                     <!-- Hidden Inputs for submission -->
@@ -527,22 +630,51 @@
                     <input type="hidden" id="input-email" name="email" required>
                 </div>
 
-                <div id="questions-container">
+                <div id="questions-container" style="padding-bottom:50px;">
                     <!-- Questions injected here -->
                 </div>
-
-                <div style="height: 20px;"></div>
-                <button type="submit" id="submit-btn" class="submit-btn" disabled>LOCK IN BETS 🔒</button>
             </form>
         </div>
 
         <!-- LIVE ANSWERS TAB -->
         <div id="answers-tab" class="tab-content">
-            <div style="text-align:center; padding:10px; color:var(--text-muted); font-size:0.9rem;">
-                Official answers released live by Admin
+            <!-- Admin Toggle (Hidden by default) -->
+            <div id="admin-controls-header"
+                style="display:none; text-align:center; padding:15px; background:rgba(20,20,20,0.5); border-bottom:1px solid #333;">
+                <button onclick="toggleAdminEditMode()" class="submit-btn"
+                    style="width:auto; padding:10px 20px; font-size:0.9rem; margin:0; background:var(--bg-input); border:1px solid var(--accent); color:var(--accent);">
+                    ✏️ UPDATE ANSWERS
+                </button>
             </div>
-            <div id="live-answers-container">
-                <!-- Injected JS -->
+
+            <div id="answers-view-mode">
+                <div style="text-align:center; padding:10px; color:var(--text-muted); font-size:0.9rem;">
+                    Official answers released live by Admin
+                </div>
+                <div id="live-answers-container">
+                    <!-- Injected JS -->
+                </div>
+            </div>
+
+            <div id="admin-dashboard-view" style="display:none;">
+                <div class="section-header" style="background: var(--patriots-red); color: white; border-color: white;">
+                    ⚠️ ADMIN: PROP BET CONTROL CENTER
+                </div>
+                <!-- Simplified Admin Form -->
+                <form id="admin-form" onsubmit="submitAdminKey(event)">
+
+                    <!-- STICKY ADMIN CONTROLS (Top) -->
+                    <div
+                        style="position:sticky; top:184px; z-index:85; background:rgba(17, 24, 38, 0.95); backdrop-filter:blur(5px); padding:15px; border-bottom:1px solid #333; margin:0 -15px 20px -15px; display:flex; gap:10px;">
+                        <button type="button" onclick="toggleAdminEditMode()" class="submit-btn"
+                            style="background:#444; flex:0 0 auto; margin:0; padding:8px 15px; width:auto; font-size:0.8rem;">CANCEL</button>
+                        <div id="admin-controls-wrapper" style="flex:1; display:flex; gap:10px;">
+                            <!-- Injected by renderAdminControl -->
+                        </div>
+                    </div>
+
+                    <div id="admin-questions-container"></div>
+                </form>
             </div>
         </div>
 
@@ -580,23 +712,7 @@
                 </div>
             </div>
 
-            <div id="admin-dashboard-view" style="display:none;">
-                <div class="section-header" style="background: var(--patriots-red); color: white; border-color: white;">
-                    ⚠️ ADMIN: PROP BET CONTROL CENTER
-                </div>
-                <!-- Simplified Admin Form -->
-                <form id="admin-form" onsubmit="submitAdminKey(event)">
-                    <div id="admin-questions-container"></div>
-
-                    <!-- STICKY FOOTER -->
-                    <div
-                        style="position:fixed; bottom:0; left:0; width:100%; padding:15px; background:rgba(20,20,20,0.95); border-top:1px solid #333; backdrop-filter:blur(10px); z-index:900; display:flex; justify-content:center; box-shadow:0 -10px 30px rgba(0,0,0,0.5);">
-                        <button type="submit" class="submit-btn"
-                            style="background: var(--patriots-red); margin-bottom:0; width:100%; max-width:600px; box-shadow: 0 0 20px rgba(255,0,0,0.3);">UPDATE
-                            LIVE RESULTS 📡</button>
-                    </div>
-                </form>
-            </div>
+            <!-- Admin Dashboard Moved to Answers Tab -->
         </div>
 
     </div>
@@ -618,17 +734,47 @@
         // CONFIG
         const SHEET_ID = '1t44Fuvdb81u6lhouktREDtdgOCIs2dAh6faNYjX-rbM';
         const SHEET_NAME_QUESTIONS = 'Printable Prop Bets Sheet';
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFSwLVJ0ABkPhtt64jMz3uYQUksKGN8psRyGq2GNh7RHG6Z-2qLrOlDHObcKTzFy-7/exec';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzi-nsbckhutgvIqNAWK13KWs04f6T_r3FrUc50IMgLXeIh7THbyreZKnQpWaxFT_G4/exec';
         const ADMIN_PASS = 'sb2026';
 
         // STATE
         let questionsData = []; // Store for admin use
+        let isLocked = false;
+        let isAdmin = false; // Admins bypass the lock
+        let currentUser = null; // Store logged in user
+
+        // Try to load user from storage
+        try {
+            const storedUser = localStorage.getItem('sb_prop_user');
+            if (storedUser) {
+                currentUser = JSON.parse(storedUser);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+
+        async function checkLockStatus() {
+            try {
+                const data = await fetchSheetData('Config');
+                const rows = data.table.rows;
+                // Search for 'submission_locked'
+                rows.forEach(r => {
+                    if (r.c && r.c[0] && r.c[0].v === 'submission_locked') {
+                        isLocked = (String(r.c[1].v).toLowerCase() === 'true');
+                    }
+                });
+            } catch (e) {
+                console.log("Config sheet not found or empty (likely new deployment)", e);
+                isLocked = false;
+            }
+        }
 
         // INIT
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             if (localStorage.getItem('sb_lix_submitted')) {
                 showSubmittedState();
             }
+            await checkLockStatus();
             loadQuestions();
             // loadLeaderboard(); // Init Load
         });
@@ -686,8 +832,62 @@
         function signOut() {
             document.getElementById('g_id_signin_box').style.display = 'flex';
             document.getElementById('user-profile').style.display = 'none';
+            document.getElementById('guest-signin-form').style.display = 'none'; // Reset guest form
+            document.getElementById('guest-signin-toggle').style.display = 'block'; // Reset toggle
+
             document.getElementById('input-name').value = '';
             document.getElementById('input-email').value = '';
+
+            // Clear inputs
+            document.getElementById('guest-name').value = '';
+            document.getElementById('guest-email').value = '';
+        }
+
+        // GUEST LOGIN LOGIC
+        function showGuestLogin() {
+            document.getElementById('g_id_signin_box').style.display = 'none';
+            document.getElementById('guest-signin-form').style.display = 'block';
+        }
+
+        function cancelGuestLogin() {
+            document.getElementById('g_id_signin_box').style.display = 'flex';
+            document.getElementById('guest-signin-form').style.display = 'none';
+        }
+
+        function handleGuestLogin() {
+            const name = document.getElementById('guest-name').value.trim();
+            const email = document.getElementById('guest-email').value.trim();
+
+            if (!name) {
+                showToast('Please enter your name', 'error');
+                return;
+            }
+            if (!email || !email.includes('@')) {
+                showToast('Please enter a valid email', 'error');
+                return;
+            }
+
+            // Update UI
+            document.getElementById('guest-signin-form').style.display = 'none';
+            document.getElementById('user-profile').style.display = 'block';
+
+            document.getElementById('user-name').innerText = name;
+            document.getElementById('user-email').innerText = email;
+
+            // Use a generic avatar or initials
+            const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            // Create a canvas generic avatar
+            document.getElementById('user-pic').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff`;
+
+            // Set Inputs
+            document.getElementById('input-name').value = name;
+            document.getElementById('input-email').value = email;
+
+            // Auto-Admin Check (Guest probably not admin, but keep logic consistent if they spoof email)
+            if (ADMIN_EMAILS.includes(email)) {
+                document.getElementById('admin-tab').classList.add('active'); // allow access
+                showToast('👋 Welcome Admin (Guest Mode)', 'success');
+            }
         }
 
         function switchTab(tab) {
@@ -709,12 +909,36 @@
         function checkAdminLogin() {
             const pass = document.getElementById('admin-pass').value;
             if (pass === ADMIN_PASS) {
-                document.getElementById('admin-login-view').style.display = 'none';
-                document.getElementById('admin-dashboard-view').style.display = 'block';
-                renderAdminQuestions();
+                isAdmin = true; // Track admin status
+
+                // Switch to Answers and show controls
+                switchTab('answers');
+                document.getElementById('admin-controls-header').style.display = 'block';
+
                 showToast('Admin Access Granted', 'success');
+                // Refresh bets tab to remove lock for admin
+                loadQuestions();
+
+                // Pre-load the admin form so it's ready
+                renderAdminQuestions();
             } else {
                 showToast('Incorrect Password', 'error');
+            }
+        }
+
+        function toggleAdminEditMode() {
+            const viewMode = document.getElementById('answers-view-mode');
+            const editMode = document.getElementById('admin-dashboard-view');
+
+            if (editMode.style.display === 'none') {
+                // Switch to Edit
+                viewMode.style.display = 'none';
+                editMode.style.display = 'block';
+                renderAdminQuestions(); // Refresh data
+            } else {
+                // Switch to View
+                viewMode.style.display = 'block';
+                editMode.style.display = 'none';
             }
         }
 
@@ -732,11 +956,13 @@
         async function loadQuestions() {
             const loader = document.getElementById('loader');
             const container = document.getElementById('questions-container');
-            const submitBtn = document.getElementById('submit-btn');
+            const stickyBtn = document.getElementById('sticky-submit-btn');
 
             loader.style.display = 'block';
-            submitBtn.disabled = true;
-            submitBtn.innerText = 'Loading...';
+            if (stickyBtn) {
+                stickyBtn.disabled = true;
+                stickyBtn.innerText = 'Loading...';
+            }
 
             try {
                 const data = await fetchSheetData(SHEET_NAME_QUESTIONS);
@@ -770,8 +996,6 @@
                         // Store for Admin View (WITH SECTION)
                         questionsData.push({ id: qIndex, text: qText, options: options, section: currentSection });
 
-                        // Render User View
-                        html += renderQuestion(qIndex, qText, options);
                         qIndex++;
                     } else {
                         if (String(cellA).includes('http') || String(cellA).includes('Google form')) continue;
@@ -779,13 +1003,50 @@
 
                         // It's a header
                         currentSection = cellA;
-                        html += `<div class="section-header">${cellA}</div>`;
                     }
                 }
 
+                // Group by Section for USER VIEW
+                const sections = {};
+                questionsData.forEach(q => {
+                    if (!sections[q.section]) sections[q.section] = [];
+                    sections[q.section].push(q);
+                });
+
+                html = ''; // Reset
+                for (const sectionName in sections) {
+                    html += `
+                    <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;" class="user-section">
+                        <summary style="padding:15px; background:rgba(255,255,255,0.05); font-family:'Oswald'; cursor:pointer; font-size:1.1rem; color:var(--accent);">
+                            ${sectionName}
+                        </summary>
+                        <div style="padding:10px;">
+                    `;
+                    sections[sectionName].forEach(q => {
+                        html += renderQuestion(q.id, q.text, q.options);
+                    });
+                    html += `</div></details>`;
+                }
+
                 container.innerHTML = html;
-                submitBtn.disabled = false;
-                submitBtn.innerText = 'LOCK IN BETS 🔒';
+
+                // LOCKED STATE HANDLING (admins bypass)
+                if (isLocked && !isAdmin) {
+                    if (stickyBtn) {
+                        stickyBtn.innerText = 'SUBMISSIONS CLOSED 🔒';
+                        stickyBtn.disabled = true;
+                        stickyBtn.style.background = '#555';
+                    }
+                    // Show a non-blocking banner
+                    showToast('Submissions are now CLOSED. You can still view your picks.', 'error');
+                } else {
+                    if (stickyBtn) {
+                        stickyBtn.innerText = 'SAVE BETS 💾';
+                        stickyBtn.disabled = false;
+                        stickyBtn.style.background = '';
+                    }
+                    updateProgress();
+                }
 
             } catch (err) {
                 console.error("LOAD ERROR:", err);
@@ -799,10 +1060,62 @@
             }
         }
 
-        function renderQuestion(id, title, options, isAdmin = false, preSelectedValue = null) {
+        function updateProgress() {
+            const total = questionsData.length;
+            const form = document.getElementById('prop-bets-form');
+            const formData = new FormData(form);
+            let answered = 0;
+
+            // Count unique keys starting with 'q'
+            const answeredKeys = new Set();
+            for (const [key, val] of formData.entries()) {
+                if (key.startsWith('q') && val.trim() !== '') {
+                    answeredKeys.add(key);
+                }
+            }
+            answered = answeredKeys.size;
+
+            document.getElementById('progress-text').innerText = `${answered}/${total}`;
+        }
+
+        function highlightMissing() {
+            const form = document.getElementById('prop-bets-form');
+            const formData = new FormData(form);
+            let firstMissing = null;
+
+            questionsData.forEach(q => {
+                const key = 'q' + q.id;
+                if (!formData.get(key)) {
+                    // This is missing
+                    const el = document.getElementsByName(key)[0];
+                    if (el) {
+                        const card = el.closest('.question-card');
+                        card.style.border = '2px solid red';
+                        card.style.boxShadow = '0 0 15px rgba(255,0,0,0.3)';
+                        if (!firstMissing) firstMissing = card;
+
+                        // Reset after 3s
+                        setTimeout(() => {
+                            card.style.border = '1px solid rgba(255,255,255,0.05)';
+                            card.style.boxShadow = 'none';
+                        }, 3000);
+                    }
+                }
+            });
+
+            if (firstMissing) {
+                firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                showToast('Highlighted missing bets!', 'error');
+            } else {
+                showToast('All bets placed! Ready to save.', 'success');
+            }
+        }
+
+        function renderQuestion(id, title, options, isAdmin = false, preSelectedValue = null, correctAnswer = null, userAnswer = null) {
             let optionsHtml = '';
             // For admin, prefix keys differently
             const namePrefix = isAdmin ? 'admin_q' : 'q';
+            const isReadonly = (correctAnswer !== null || userAnswer !== null) && !isAdmin;
 
             if (options.length > 0) {
                 optionsHtml = `<div class="options-grid">`;
@@ -811,9 +1124,22 @@
                     // Check if matched
                     const isChecked = preSelectedValue && String(opt) === String(preSelectedValue) ? 'checked' : '';
 
+                    // Highlighting Logic
+                    let labelClass = '';
+                    if (correctAnswer) {
+                        // We have results to show
+                        if (String(opt) === String(correctAnswer)) {
+                            // This is the correct answer
+                            labelClass = String(opt) === String(userAnswer) ? 'correct-answer' : 'missed-correct-answer';
+                        } else if (String(opt) === String(userAnswer)) {
+                            // User picked this, but it wasn't correct (caught by logic above)
+                            labelClass = 'wrong-answer';
+                        }
+                    }
+
                     optionsHtml += `
-                        <label>
-                            <input type="radio" name="${namePrefix}${id}" value="${valsafe}" ${!isAdmin ? 'required' : ''} ${isChecked}>
+                        <label class="${labelClass}">
+                            <input type="radio" name="${namePrefix}${id}" value="${valsafe}" ${!isAdmin ? 'required' : ''} ${isChecked} ${isReadonly ? 'disabled' : ''}>
                             <div class="option-label" ${isAdmin ? 'style="font-size:0.8rem; min-height:40px; padding:10px;"' : ''}>${opt}</div>
                         </label>
                     `;
@@ -821,7 +1147,20 @@
                 optionsHtml += `</div>`;
             } else {
                 const val = preSelectedValue || '';
-                optionsHtml = `<input type="text" name="${namePrefix}${id}" class="text-input" placeholder="Answer" value="${val}">`;
+                // Text input handling (simple border color if needed, but mostly options)
+                let borderStyle = '';
+                if (correctAnswer) {
+                    if (String(val).toLowerCase().trim() === String(correctAnswer).toLowerCase().trim()) {
+                        borderStyle = 'border: 2px solid #2ecc71; background: rgba(46, 204, 113, 0.1);';
+                    } else {
+                        borderStyle = 'border: 2px solid #e74c3c; background: rgba(231, 76, 60, 0.1);';
+                    }
+                }
+
+                optionsHtml += `
+                    <input type="text" name="${namePrefix}${id}" class="text-input" placeholder="Answer" value="${val}" ${isReadonly ? 'readonly' : ''} style="${borderStyle}">
+                    ${correctAnswer && String(val) !== String(correctAnswer) ? `<div style="color:#3498db; font-size:0.9rem; margin-top:5px;">Correct Answer: <b>${correctAnswer}</b></div>` : ''}
+                `;
             }
 
             return `
@@ -852,48 +1191,240 @@
             }
         }
 
-        async function loadLiveAnswers() {
+        async function loadLiveAnswers(targetEmail = null) {
+            // Re-using this container for User Results too
             const container = document.getElementById('live-answers-container');
-            container.innerHTML = '<div style="text-align:center; padding:20px;">Checking for official answers...</div>';
+            // Don't wipe innerHTML immediately if we want to preserve the selector, 
+            // but for simplicity we will re-render the selector every time (fast enough) or check existence.
+            container.innerHTML = '<div style="text-align:center; padding:20px;">Loading results...</div>';
 
             try {
                 const keyMap = await getAnswerKeyMap();
 
+                // If no answers yet, show placeholder
                 if (Object.keys(keyMap).length === 0) {
                     container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">No answers released yet. Stay tuned!</div>';
                     return;
                 }
 
-                let html = '';
-                questionsData.forEach(q => {
-                    if (keyMap[q.id]) {
-                        html += `
-                            <div class="question-card" style="border-left: 5px solid var(--success);">
-                                <div class="q-title" style="margin-bottom:10px;">${q.id}. ${q.text}</div>
-                                <div style="font-weight:bold; color:var(--success); font-size:1.1rem;">
-                                    ✅ ${keyMap[q.id]}
-                                </div>
-                            </div>
-                        `;
+                // DATA FETCHING: Get All Responses (we need them for Admin anyway)
+                let allResponses = { table: { rows: [] } };
+                try {
+                    allResponses = await fetchSheetData('Responses');
+                } catch (err) {
+                    console.error("Error fetching responses", err);
+                }
+                const rows = allResponses.table.rows;
+                const MAP_IDX = 4;
+                const NAME_IDX = 1; // Col B
+                const EMAIL_IDX = 2; // Col C
+
+                // ADMIN SELECTOR
+                let adminSelectorHtml = '';
+                if (isAdmin) {
+                    const users = [];
+                    rows.forEach(r => {
+                        if (r.c && r.c[EMAIL_IDX] && r.c[NAME_IDX]) {
+                            users.push({
+                                name: r.c[NAME_IDX].v,
+                                email: r.c[EMAIL_IDX].v
+                            });
+                        }
+                    });
+
+                    // Sort by name
+                    users.sort((a, b) => a.name.localeCompare(b.name));
+
+                    let options = `<option value="">-- Select a User --</option>`;
+                    users.forEach(u => {
+                        const sel = (targetEmail && targetEmail === u.email) ? 'selected' : '';
+                        options += `<option value="${u.email}" ${sel}>${u.name} (${u.email})</option>`;
+                    });
+
+                    adminSelectorHtml = `
+                        <div style="margin-bottom:20px; text-align:center; background:rgba(255,255,255,0.05); padding:15px; border-radius:10px;">
+                            <label style="display:block; margin-bottom:5px; color:var(--accent); font-size:0.9rem;">Refereee Inspection View</label>
+                            <select id="admin-user-selector" onchange="loadLiveAnswers(this.value)" style="padding:10px; border-radius:5px; background:var(--bg-card); color:var(--text-main); border:1px solid #555; width:100%; max-width:300px;">
+                                ${options}
+                            </select>
+                        </div>
+                    `;
+                }
+
+                // RESOLVE TARGET USER
+                // If targetEmail is set (Admin selected), use that.
+                // Else use currentUser.email
+                let effectiveEmail = targetEmail;
+                if (!effectiveEmail && currentUser) {
+                    effectiveEmail = currentUser.email;
+                }
+
+                let targetUserAnswers = {};
+                let targetUserName = 'You';
+
+                if (effectiveEmail) {
+                    const userRow = rows.find(r => r.c && r.c[EMAIL_IDX] && r.c[EMAIL_IDX].v === effectiveEmail);
+                    if (userRow) {
+                        if (userRow.c[MAP_IDX]) {
+                            targetUserAnswers = JSON.parse(userRow.c[MAP_IDX].v);
+                        }
+                        if (userRow.c[NAME_IDX]) {
+                            targetUserName = userRow.c[NAME_IDX].v;
+                        }
                     }
+                }
+
+                // Render Questions with Feedback
+                const sections = {};
+                questionsData.forEach(q => {
+                    if (!sections[q.section]) sections[q.section] = [];
+                    sections[q.section].push(q);
                 });
 
-                if (!html) {
-                    container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">No answers found for current questions.</div>';
-                } else {
-                    container.innerHTML = html;
+                let html = adminSelectorHtml;
+
+                if (effectiveEmail) {
+                    html += `<div style="text-align:center; margin-bottom:20px; color:var(--accent);">Results for: <b style="color:white; font-size:1.1rem;">${targetUserName}</b></div>`;
+                } else if (!isAdmin) {
+                    html += `<div style="text-align:center; margin-bottom:20px; color:var(--text-muted);">Please log in to see your graded results.</div>`;
                 }
+
+                for (const sectionName in sections) {
+                    html += `
+                    <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;">
+                        <summary style="padding:15px; background:rgba(255,255,255,0.05); font-family:'Oswald'; cursor:pointer; font-size:1.1rem; color:var(--accent);">
+                            ${sectionName}
+                        </summary>
+                        <div style="padding:10px;">
+                    `;
+                    sections[sectionName].forEach(q => {
+                        const correctVal = keyMap[q.id];
+                        // User answers are stored as "q1", "q2"... in the JSON
+                        const userVal = targetUserAnswers['q' + q.id];
+
+                        // Only show if there IS a correct answer (otherwise it's ungreaded)
+                        if (correctVal) {
+                            html += renderQuestion(q.id, q.text, q.options, false, userVal, correctVal, userVal);
+                        } else {
+                            html += renderQuestion(q.id, q.text + ' (Pending)', q.options, false, userVal);
+                        }
+                    });
+                    html += `</div></details>`;
+                }
+
+                container.innerHTML = html;
 
             } catch (e) {
                 console.error(e);
-                container.innerHTML = '<div style="text-align:center; padding:20px;">Could not load answers.</div>';
+                container.innerHTML = '<div style="text-align:center; padding:20px;">Could not load results.</div>';
+            }
+        }
+
+        async function loadLeaderboard() {
+            const tbody = document.getElementById('leaderboard-body');
+            const lastUpdated = document.getElementById('last-updated');
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:#aaa;">Loading scores...</td></tr>';
+
+            try {
+                // User confirmed the sheet is named "Responses"
+                // Often this is "Form Responses 1" or similar, but we'll try "Responses" first as requested.
+                // If it fails, we might need error handling or fallback.
+                const data = await fetchSheetData('Responses');
+                const rows = data.table.rows;
+                const cols = data.table.cols; // GVIZ returns column descriptors too
+
+                if (!rows || rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px;">No scores yet.</td></tr>';
+                    return;
+                }
+
+                // Schema based on user screenshot:
+                // Col A (0): Timestamp
+                // Col B (1): Name
+                // Col C (2): Email
+                // Col D (3): Score
+                // Col E (4): MapData
+
+                const NAME_IDX = 1;
+                const SCORE_IDX = 3;
+
+                // Algorithm to parse rows
+                let entries = [];
+
+                rows.forEach((r, i) => {
+                    if (!r.c) return;
+
+                    // Skip potential header row if first row has "Score" in the score column
+                    // (GVIZ sometimes puts header in 'cols' only, but sometimes in rows[0])
+                    const rawName = r.c[NAME_IDX] ? r.c[NAME_IDX].v : 'Anonymous';
+                    const rawScore = r.c[SCORE_IDX] ? r.c[SCORE_IDX].v : 0;
+
+                    if (String(rawScore).trim().toLowerCase() === 'score') return; // It's a header
+
+                    // Only add if name is present
+                    if (rawName && rawName !== 'Anonymous') {
+                        entries.push({ name: rawName, score: Number(rawScore) || 0 });
+                    }
+                });
+
+                // Sort by Score DESC
+                entries.sort((a, b) => b.score - a.score);
+
+                let html = '';
+                entries.forEach((entry, i) => {
+                    const rank = i + 1;
+                    const isGold = (rank === 1);
+                    const rowClass = isGold ? 'gold-row' : '';
+                    const medal = isGold ? '👑' : '';
+
+                    html += `
+                        <tr class="${rowClass}">
+                            <td class="rank-cell">${rank}</td>
+                            <td>${entry.name} ${medal}</td>
+                            <td style="text-align:right; font-weight:700;">${entry.score}</td>
+                        </tr>
+                    `;
+                });
+
+                if (entries.length === 0) {
+                    html = '<tr><td colspan="3" style="text-align:center; padding:30px;">No graded responses found.</td></tr>';
+                }
+
+                tbody.innerHTML = html;
+                lastUpdated.innerText = 'Last updated: ' + new Date().toLocaleTimeString();
+
+            } catch (e) {
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:var(--error);">Failed to load leaderboard.<br><small>Check console for details</small></td></tr>';
             }
         }
 
         // ADMIN RENDER
+        // ADMIN RENDER
+        function renderAdminControl() {
+            const wrapper = document.getElementById('admin-controls-wrapper');
+            if (!wrapper) return;
+
+            // ACL CHECK: Only render for admins
+            if (!isAdmin) {
+                wrapper.innerHTML = '';
+                return;
+            }
+
+            const lockColor = isLocked ? '#444' : 'var(--accent)';
+            const lockText = isLocked ? 'UNLOCK SUBMISSIONS 🔓' : 'LOCK SUBMISSIONS 🔒';
+
+            wrapper.innerHTML = `
+                <button type="button" id="lock-toggle-btn" onclick="toggleAdminLock()" class="submit-btn" style="background:${lockColor}; flex:1; font-size:0.8rem; margin:0; padding:8px 15px;">${lockText}</button>
+                <button type="submit" class="submit-btn" style="background: var(--patriots-red); flex:2; margin:0; box-shadow: 0 0 20px rgba(255,0,0,0.3); font-size:0.9rem; padding:8px 15px;">UPDATE LIVE RESULTS 📡</button>
+            `;
+        }
+
         async function renderAdminQuestions() {
             const container = document.getElementById('admin-questions-container');
             container.innerHTML = '<div style="padding:20px; text-align:center;">Loading current results...</div>';
+
+            renderAdminControl(); // Init buttons
 
             // Fetch existing state
             const keyMap = await getAnswerKeyMap();
@@ -929,13 +1460,44 @@
             container.innerHTML = html;
         }
 
+        function toggleAdminLock() {
+            if (!confirm(`Are you sure you want to ${isLocked ? 'UNLOCK' : 'LOCK'} submissions?`)) return;
+
+            const btn = document.getElementById('lock-toggle-btn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Processing...';
+            btn.disabled = true;
+
+            const newState = !isLocked;
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ type: 'toggle_lock', locked: newState })
+            })
+                .then(() => {
+                    showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'}!`, 'success');
+                    isLocked = newState;
+                    renderAdminControl(); // Refresh UI
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast('Failed to toggle lock', 'error');
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                });
+        }
+
         // --- SUBMISSION ---
 
         function submitBets(e) {
             e.preventDefault();
-            const btn = document.getElementById('submit-btn');
-            btn.disabled = true;
-            btn.innerText = 'Submitting...';
+            const btn = document.getElementById('sticky-submit-btn') || document.getElementById('submit-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = 'Submitting...';
+            }
 
             const formData = new FormData(e.target);
             const data = { type: 'bet' };
@@ -946,8 +1508,10 @@
                 showToast('Bets Locked In! 🏈', 'success');
                 showSubmittedState();
             }, () => {
-                btn.disabled = false;
-                btn.innerText = 'LOCK IN BETS 🔒';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'SAVE BETS 💾'; // Revert text
+                }
             });
         }
 
@@ -959,18 +1523,31 @@
 
             if (!confirm('Are you sure you want to update the official Answer Key? This will update scores.')) return;
 
-            const btn = e.target.querySelector('button');
-            const originalText = btn.innerText;
-            btn.innerText = 'Updating...';
-            btn.disabled = true;
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn ? btn.innerText : 'UPDATE';
+            if (btn) {
+                btn.innerText = 'Updating...';
+                btn.disabled = true;
+            }
 
             sendData(data, () => {
                 showToast('Answer Key Updated! Scores Recalculating.', 'success');
-                btn.innerText = originalText;
-                btn.disabled = false;
+                if (btn) {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
+
+                // Return to View Mode
+                toggleAdminEditMode();
+
+                // Refresh Answers tab so users see new results
+                loadLiveAnswers();
+                loadLeaderboard();
             }, () => {
-                btn.innerText = originalText;
-                btn.disabled = false;
+                if (btn) {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
             });
         }
 
