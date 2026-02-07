@@ -1602,7 +1602,7 @@
 
             for (const sectionName in sections) {
                 html += `
-                < details open style = "margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;" >
+                <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;">
                     <summary style="padding:15px; background:rgba(255,255,255,0.05); font-family:'Oswald'; cursor:pointer; font-size:1.1rem; color:var(--accent);">
                         ${sectionName}
                     </summary>
@@ -1613,7 +1613,7 @@
                     html += renderQuestion(q.id, q.text, q.options, true, keyMap[q.id]);
                 });
 
-                html += `</div></details > `;
+                html += `</div></details>`;
             }
 
             // Add padding for sticky footer
