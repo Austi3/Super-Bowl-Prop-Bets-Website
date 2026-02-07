@@ -666,6 +666,15 @@
                 </button>
             </div>
 
+            <!-- New Admin Login Header (Visible when default/non-admin) -->
+            <div id="admin-login-header"
+                style="text-align:center; padding:15px; margin-bottom:15px; border-bottom:1px solid #333;">
+                <button onclick="switchTab('admin');" class="submit-btn"
+                    style="width:auto; padding:8px 20px; font-size:0.9rem; margin:0; background:transparent; border:1px solid #444; color:#aaa;">
+                    🔒 Admin Login
+                </button>
+            </div>
+
             <div id="answers-view-mode">
                 <div style="text-align:center; padding:10px; color:var(--text-muted); font-size:0.9rem;">
                     Official answers released live by Admin
@@ -859,6 +868,10 @@
                     const adminHeader = document.getElementById('admin-controls-header');
                     if (adminHeader) adminHeader.style.display = 'block';
 
+                    // Hide Admin Login Button
+                    const adminLoginHeader = document.getElementById('admin-login-header');
+                    if (adminLoginHeader) adminLoginHeader.style.display = 'none';
+
                     // Optional: Auto-refresh answers to show selector immediately if on that tab
                     if (document.getElementById('answers-tab').classList.contains('active')) {
                         loadLiveAnswers();
@@ -869,6 +882,9 @@
                     isAdmin = false;
                     const adminHeader = document.getElementById('admin-controls-header');
                     if (adminHeader) adminHeader.style.display = 'none';
+
+                    const adminLoginHeader = document.getElementById('admin-login-header');
+                    if (adminLoginHeader) adminLoginHeader.style.display = 'block';
                 }
 
                 // Set currentUser
@@ -987,7 +1003,12 @@
 
                 // Switch to Answers and show controls
                 switchTab('answers');
-                document.getElementById('admin-controls-header').style.display = 'block';
+
+                const adminHeader = document.getElementById('admin-controls-header');
+                if (adminHeader) adminHeader.style.display = 'block';
+
+                const adminLoginHeader = document.getElementById('admin-login-header');
+                if (adminLoginHeader) adminLoginHeader.style.display = 'none';
 
                 showToast('Admin Access Granted', 'success');
                 // Refresh bets tab to remove lock for admin
@@ -1239,15 +1260,15 @@
 
         }
 
-        function renderQuestion(id, title, options, isAdmin = false, preSelectedValue = null, correctAnswer = null, userAnswer = null) {
+        function renderQuestion(id, title, options, isAdmin = false, preSelectedValue = null, correctAnswer = null, userAnswer = null, forceReadonly = false) {
             let optionsHtml = '';
             // For admin, prefix keys differently
             const namePrefix = isAdmin ? 'admin_q' : 'q';
 
             // Read-only if we are viewing results (correctAnswer or userAnswer exists) AND we are not in Admin Edit logic
             // But if isAdmin is TRUE, we are editing, so NOT readonly.
-            // If isAdmin is FALSE (Player View), it is readonly if results exist.
-            const isReadonly = (correctAnswer !== null || userAnswer !== null) && !isAdmin;
+            // If isAdmin is FALSE (Player View), it is readonly if results exist OR if forceReadonly is true.
+            const isReadonly = forceReadonly || ((correctAnswer !== null || userAnswer !== null) && !isAdmin);
 
             if (options.length > 0) {
                 optionsHtml = `<div class="options-grid">`;
@@ -1291,6 +1312,9 @@
                             // User picked this, but it wasn't correct
                             labelClass = 'wrong-answer';
                         }
+                    } else if (userArr.includes(optStr)) {
+                        // No correct answer yet, but user picked this
+                        labelClass = 'user-selected-pending'; // You might want to style this differently or just leave default
                     }
 
                     // Input Type: Checkbox for Admin (allows multi-select), Radio for User
@@ -1435,10 +1459,11 @@
                         const userVal = targetUserAnswers['q' + q.id];
 
                         // Only show if there IS a correct answer (otherwise it's ungreaded)
+                        // FORCE READONLY for Answers Tab!
                         if (correctVal) {
-                            html += renderQuestion(q.id, q.text, q.options, false, userVal, correctVal, userVal);
+                            html += renderQuestion(q.id, q.text, q.options, false, userVal, correctVal, userVal, true);
                         } else {
-                            html += renderQuestion(q.id, q.text + ' (Pending)', q.options, false, userVal);
+                            html += renderQuestion(q.id, q.text + ' (Pending)', q.options, false, userVal, null, null, true);
                         }
                     });
                     html += `</div></details>`;
