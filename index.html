@@ -279,10 +279,10 @@
         /* Custom selection styles */
         input[type="radio"]:checked+.option-label {
             border-color: var(--accent);
-            background: rgba(0, 194, 232, 0.1);
+            background: rgba(0, 194, 232, 0.4);
             color: white;
             font-weight: 700;
-            box-shadow: 0 0 15px rgba(0, 194, 232, 0.2);
+            box-shadow: 0 0 15px rgba(0, 194, 232, 0.4);
         }
 
         /* Inputs */
@@ -460,52 +460,66 @@
 
         /* USER RESULT HIGHLIGHTING */
         .correct-answer {
-            background: rgba(46, 204, 113, 0.2) !important;
-            border: 1px solid #2ecc71 !important;
-            position: relative;
-        }
-
-        .correct-answer::after {
-            content: '✅';
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
+            background: rgba(46, 204, 113, 0.3) !important;
+            border: 2px solid #2ecc71 !important;
         }
 
         .wrong-answer {
-            background: rgba(231, 76, 60, 0.2) !important;
-            border: 1px solid #e74c3c !important;
-            position: relative;
-        }
-
-        .wrong-answer::after {
-            content: '❌ Your Answer';
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 0.8rem;
-            color: #e74c3c;
-            font-weight: bold;
+            background: rgba(231, 76, 60, 0.3) !important;
+            border: 2px solid #e74c3c !important;
         }
 
         .missed-correct-answer {
-            border: 2px dashed #3498db !important;
-            background: rgba(52, 152, 219, 0.1) !important;
+            background: rgba(52, 152, 219, 0.3) !important;
+            border: 2px solid #3498db !important;
+        }
+
+        /* Unanswered question highlight */
+        .unanswered {
+            border: 2px solid rgba(255, 200, 0, 0.6) !important;
+            box-shadow: 0 0 10px rgba(255, 200, 0, 0.2);
+        }
+
+        /* Form disabled overlay */
+        .form-disabled-wrapper {
             position: relative;
         }
 
-        .missed-correct-answer::after {
-            content: 'Correct Answer';
+        .form-disabled-wrapper.disabled {
+            pointer-events: none;
+        }
+
+        .form-disabled-wrapper.disabled::after {
+            content: '';
             position: absolute;
-            right: 10px;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(20, 20, 20, 0.7);
+            z-index: 10;
+            border-radius: 10px;
+        }
+
+        .form-disabled-wrapper.disabled .question-card {
+            opacity: 0.4;
+            filter: grayscale(50%);
+        }
+
+        #form-signin-prompt {
+            position: absolute;
             top: 50%;
-            transform: translateY(-50%);
-            font-size: 0.8rem;
-            color: #3498db;
-            font-weight: bold;
-            font-family: 'Oswald';
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            text-align: center;
+            color: var(--accent);
+            font-size: 1.2rem;
+            font-weight: 700;
+            padding: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            border-radius: 10px;
+            border: 1px solid var(--accent);
         }
     </style>
 </head>
@@ -548,11 +562,11 @@
                         style="font-size:0.9rem; color:#888;">BETS PLACED</span>
                 </div>
                 <div style="display:flex; gap:10px;">
-                    <button type="button" onclick="highlightMissing()"
-                        style="background:none; border:1px solid #444; color:#aaa; font-size:0.8rem; padding:5px 10px; border-radius:5px; cursor:pointer;">Highlight
-                        Missing</button>
-                    <button onclick="submitBets(event)" id="sticky-submit-btn" class="submit-btn"
-                        style="width:auto; padding:8px 20px; font-size:1rem; margin:0;" disabled>SAVE BETS 💾</button>
+                    <button onclick="submitBets(event, 'draft')" id="sticky-save-btn" class="submit-btn"
+                        style="width:auto; padding:8px 15px; font-size:0.9rem; margin:0; background:transparent; border:1px solid #555; box-shadow:none;"
+                        disabled>SAVE 💾</button>
+                    <button onclick="submitBets(event, 'final')" id="sticky-submit-btn" class="submit-btn"
+                        style="width:auto; padding:8px 20px; font-size:1rem; margin:0;" disabled>SUBMIT 🏈</button>
                 </div>
             </div>
 
@@ -628,10 +642,14 @@
                     <!-- Hidden Inputs for submission -->
                     <input type="hidden" id="input-name" name="name" required>
                     <input type="hidden" id="input-email" name="email" required>
+                    <input type="hidden" id="input-status" name="status" value="draft">
                 </div>
 
-                <div id="questions-container" style="padding-bottom:50px;">
-                    <!-- Questions injected here -->
+                <div id="questions-wrapper" class="form-disabled-wrapper disabled">
+                    <div id="form-signin-prompt">👆 Sign in above to place bets</div>
+                    <div id="questions-container" style="padding-bottom:50px;">
+                        <!-- Questions injected here -->
+                    </div>
                 </div>
             </form>
         </div>
@@ -668,7 +686,8 @@
                     <div
                         style="position:sticky; top:184px; z-index:85; background:rgba(17, 24, 38, 0.95); backdrop-filter:blur(5px); padding:15px; border-bottom:1px solid #333; margin:0 -15px 20px -15px; display:flex; gap:10px;">
                         <button type="button" onclick="toggleAdminEditMode()" class="submit-btn"
-                            style="background:#444; flex:0 0 auto; margin:0; padding:8px 15px; width:auto; font-size:0.8rem;">CANCEL</button>
+                            style="background:#444; flex:0 0 auto; margin:0; padding:8px 15px; width:auto; font-size:0.8rem;">⬅️
+                            Back to Player View</button>
                         <div id="admin-controls-wrapper" style="flex:1; display:flex; gap:10px;">
                             <!-- Injected by renderAdminControl -->
                         </div>
@@ -733,9 +752,9 @@
 
     <script>
         // CONFIG
-        const SHEET_ID = '1t44Fuvdb81u6lhouktREDtdgOCIs2dAh6faNYjX-rbM';
+        const SHEET_ID = '1h5SvSsrxeBa8YI_jBLg7Atvp_wtPqHOLRngFr_HQzCU';
         const SHEET_NAME_QUESTIONS = 'Printable Prop Bets Sheet';
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzi-nsbckhutgvIqNAWK13KWs04f6T_r3FrUc50IMgLXeIh7THbyreZKnQpWaxFT_G4/exec';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw3kcncm8n8_oWmSJ_K8DeyR9k3NfSVQvYO8twe9sWIweUSfqHYUUh9fkNGPnZ_UE36/exec';
         const ADMIN_PASS = 'sb2026';
 
         // STATE
@@ -752,6 +771,22 @@
             }
         } catch (e) {
             console.error(e);
+        }
+
+        // Enable form after user signs in
+        function enableForm() {
+            const wrapper = document.getElementById('questions-wrapper');
+            const prompt = document.getElementById('form-signin-prompt');
+            if (wrapper) wrapper.classList.remove('disabled');
+            if (prompt) prompt.style.display = 'none';
+        }
+
+        // Disable form (when user signs out)
+        function disableForm() {
+            const wrapper = document.getElementById('questions-wrapper');
+            const prompt = document.getElementById('form-signin-prompt');
+            if (wrapper) wrapper.classList.add('disabled');
+            if (prompt) prompt.style.display = 'block';
         }
 
         async function checkLockStatus() {
@@ -773,10 +808,26 @@
         // INIT
         window.addEventListener('DOMContentLoaded', async () => {
             if (localStorage.getItem('sb_lix_submitted')) {
-                showSubmittedState();
+                // Determine if we show submitted state or just update button text
+                // User wants to edit, so let's just update the button
+                // showSubmittedState(); // REMOVED per user request
             }
             await checkLockStatus();
             loadQuestions();
+
+            // If user already signed in from storage, enable the form and show profile
+            if (currentUser && currentUser.name && currentUser.email) {
+                enableForm();
+                // Also update UI to show user profile
+                document.getElementById('g_id_signin_box').style.display = 'none';
+                document.getElementById('guest-signin-toggle').style.display = 'none';
+                document.getElementById('user-profile').style.display = 'block';
+                document.getElementById('user-name').innerText = currentUser.name;
+                document.getElementById('user-email').innerText = currentUser.email;
+                document.getElementById('user-pic').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=random&color=fff`;
+                document.getElementById('input-name').value = currentUser.name;
+                document.getElementById('input-email').value = currentUser.email;
+            }
             // loadLeaderboard(); // Init Load
         });
 
@@ -820,6 +871,13 @@
                     if (adminHeader) adminHeader.style.display = 'none';
                 }
 
+                // Set currentUser
+                currentUser = { name: responsePayload.name, email };
+                localStorage.setItem('sb_prop_user', JSON.stringify(currentUser));
+
+                // Enable the form
+                enableForm();
+
             } catch (e) {
                 console.error("Sign In Error", e);
             }
@@ -846,6 +904,10 @@
             // Clear inputs
             document.getElementById('guest-name').value = '';
             document.getElementById('guest-email').value = '';
+
+            currentUser = null;
+            localStorage.removeItem('sb_prop_user');
+            disableForm();
         }
 
         // GUEST LOGIN LOGIC
@@ -893,6 +955,13 @@
                 document.getElementById('admin-tab').classList.add('active'); // allow access
                 showToast('👋 Welcome Admin (Guest Mode)', 'success');
             }
+
+            // Set currentUser
+            currentUser = { name, email };
+            localStorage.setItem('sb_prop_user', JSON.stringify(currentUser));
+
+            // Enable the form
+            enableForm();
         }
 
         function switchTab(tab) {
@@ -950,8 +1019,10 @@
         // --- DATA LOADING ---
 
         async function fetchSheetData(sheetName) {
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=0&sheet=${encodeURIComponent(sheetName)}`;
-            const text = await fetch(url).then(r => r.text());
+            // Add cache-busting timestamp to always get fresh data
+            const cacheBuster = Date.now();
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=0&sheet=${encodeURIComponent(sheetName)}&_cb=${cacheBuster}`;
+            const text = await fetch(url, { cache: 'no-store' }).then(r => r.text());
             const start = text.indexOf('{');
             const end = text.lastIndexOf('}');
             if (start === -1 || end === -1) throw new Error('Invalid GVIZ response');
@@ -961,12 +1032,14 @@
         async function loadQuestions() {
             const loader = document.getElementById('loader');
             const container = document.getElementById('questions-container');
-            const stickyBtn = document.getElementById('sticky-submit-btn');
+            const stickySaveBtn = document.getElementById('sticky-save-btn');
+            const stickySubmitBtn = document.getElementById('sticky-submit-btn');
 
             loader.style.display = 'block';
-            if (stickyBtn) {
-                stickyBtn.disabled = true;
-                stickyBtn.innerText = 'Loading...';
+            if (stickySaveBtn) stickySaveBtn.disabled = true;
+            if (stickySubmitBtn) {
+                stickySubmitBtn.disabled = true;
+                stickySubmitBtn.innerText = 'Loading...';
             }
 
             try {
@@ -1037,18 +1110,23 @@
 
                 // LOCKED STATE HANDLING (admins bypass)
                 if (isLocked && !isAdmin) {
-                    if (stickyBtn) {
-                        stickyBtn.innerText = 'SUBMISSIONS CLOSED 🔒';
-                        stickyBtn.disabled = true;
-                        stickyBtn.style.background = '#555';
+                    if (stickySaveBtn) stickySaveBtn.disabled = true;
+                    if (stickySubmitBtn) {
+                        stickySubmitBtn.innerText = 'SUBMISSIONS CLOSED 🔒';
+                        stickySubmitBtn.disabled = true;
+                        stickySubmitBtn.style.background = '#555';
                     }
                     // Show a non-blocking banner
                     showToast('Submissions are now CLOSED. You can still view your picks.', 'error');
                 } else {
-                    if (stickyBtn) {
-                        stickyBtn.innerText = 'SAVE BETS 💾';
-                        stickyBtn.disabled = false;
-                        stickyBtn.style.background = '';
+                    if (stickySaveBtn) {
+                        stickySaveBtn.disabled = false;
+                        stickySaveBtn.innerText = 'SAVE 💾';
+                    }
+                    if (stickySubmitBtn) {
+                        stickySubmitBtn.innerText = 'SUBMIT 🏈';
+                        stickySubmitBtn.disabled = false; // updateProgress will re-evaluate this
+                        stickySubmitBtn.style.background = '';
                     }
                     updateProgress();
                 }
@@ -1069,7 +1147,6 @@
             const total = questionsData.length;
             const form = document.getElementById('prop-bets-form');
             const formData = new FormData(form);
-            let answered = 0;
 
             // Count unique keys starting with 'q'
             const answeredKeys = new Set();
@@ -1078,9 +1155,55 @@
                     answeredKeys.add(key);
                 }
             }
-            answered = answeredKeys.size;
+            const answered = answeredKeys.size;
 
             document.getElementById('progress-text').innerText = `${answered}/${total}`;
+
+            // Auto-highlight missing questions
+            questionsData.forEach(q => {
+                const key = 'q' + q.id;
+                const el = document.getElementsByName(key)[0];
+                if (el) {
+                    const card = el.closest('.question-card');
+                    if (!answeredKeys.has(key)) {
+                        card.classList.add('unanswered');
+                    } else {
+                        card.classList.remove('unanswered');
+                    }
+                }
+            });
+
+            // Enable/disable buttons based on user login & completion
+            const saveBtn = document.getElementById('sticky-save-btn');
+            const submitBtn = document.getElementById('sticky-submit-btn');
+
+            const isSubmitted = localStorage.getItem('sb_lix_submitted');
+
+            if (saveBtn && !isLocked) {
+                saveBtn.disabled = false;
+            }
+
+            if (submitBtn && !isLocked) {
+                // Submit only allowed if ALL questions answered?
+                // User said: "submit button for when all bets are filled out"
+                // Let's enforce that or at least warn?
+                if (answered >= total) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.title = '';
+                } else {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.5';
+                    submitBtn.title = 'Answer all questions to submit';
+                }
+
+                // If already submitted, change text to "Update Entry"
+                if (isSubmitted) {
+                    submitBtn.innerText = 'UPDATE ENTRY ✏️';
+                    submitBtn.disabled = false; // Always allow update if already submitted once
+                    submitBtn.style.opacity = '1';
+                }
+            }
         }
 
         function highlightMissing() {
@@ -1112,42 +1235,73 @@
                 firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 showToast('Highlighted missing bets!', 'error');
             } else {
-                showToast('All bets placed! Ready to save.', 'success');
             }
+
         }
 
         function renderQuestion(id, title, options, isAdmin = false, preSelectedValue = null, correctAnswer = null, userAnswer = null) {
             let optionsHtml = '';
             // For admin, prefix keys differently
             const namePrefix = isAdmin ? 'admin_q' : 'q';
+
+            // Read-only if we are viewing results (correctAnswer or userAnswer exists) AND we are not in Admin Edit logic
+            // But if isAdmin is TRUE, we are editing, so NOT readonly.
+            // If isAdmin is FALSE (Player View), it is readonly if results exist.
             const isReadonly = (correctAnswer !== null || userAnswer !== null) && !isAdmin;
 
             if (options.length > 0) {
                 optionsHtml = `<div class="options-grid">`;
+
+                // Helper to parse potential JSON arrays or single values
+                const parseVals = (val) => {
+                    if (!val) return [];
+                    if (Array.isArray(val)) return val.map(String);
+                    try {
+                        const parsed = JSON.parse(val);
+                        if (Array.isArray(parsed)) return parsed.map(String);
+                    } catch (e) { }
+                    return [String(val)];
+                };
+
+                const preSelectedArr = parseVals(preSelectedValue);
+                const correctArr = parseVals(correctAnswer);
+                const userArr = parseVals(userAnswer);
+
                 options.forEach(opt => {
                     const valsafe = String(opt).replace(/"/g, '&quot;');
+                    const optStr = String(opt);
+
                     // Check if matched
-                    const isChecked = preSelectedValue && String(opt) === String(preSelectedValue) ? 'checked' : '';
+                    const isChecked = preSelectedArr.includes(optStr) ? 'checked' : '';
 
                     // Highlighting Logic
                     let labelClass = '';
-                    if (correctAnswer) {
-                        // We have results to show
-                        if (String(opt) === String(correctAnswer)) {
-                            // This is the correct answer
-                            labelClass = String(opt) === String(userAnswer) ? 'correct-answer' : 'missed-correct-answer';
-                        } else if (String(opt) === String(userAnswer)) {
-                            // User picked this, but it wasn't correct (caught by logic above)
+
+                    // If checking results (correctAnswer exists)
+                    if (correctArr.length > 0) {
+                        if (correctArr.includes(optStr)) {
+                            // This is a correct answer
+                            // Did user pick it?
+                            if (userArr.includes(optStr)) {
+                                labelClass = 'correct-answer';
+                            } else {
+                                labelClass = 'missed-correct-answer';
+                            }
+                        } else if (userArr.includes(optStr)) {
+                            // User picked this, but it wasn't correct
                             labelClass = 'wrong-answer';
                         }
                     }
 
+                    // Input Type: Checkbox for Admin (allows multi-select), Radio for User
+                    const inputType = isAdmin ? 'checkbox' : 'radio';
+
                     optionsHtml += `
-                        <label class="${labelClass}">
-                            <input type="radio" name="${namePrefix}${id}" value="${valsafe}" ${!isAdmin ? 'required' : ''} ${isChecked} ${isReadonly ? 'disabled' : ''}>
-                            <div class="option-label" ${isAdmin ? 'style="font-size:0.8rem; min-height:40px; padding:10px;"' : ''}>${opt}</div>
-                        </label>
-                    `;
+                            <label class="${labelClass}">
+                                <input type="${inputType}" name="${namePrefix}${id}" value="${valsafe}" ${!isAdmin ? 'required' : ''} ${isChecked} ${isReadonly ? 'disabled' : ''}>
+                                <div class="option-label" ${isAdmin ? 'style="font-size:0.8rem; min-height:40px; padding:10px;"' : ''}>${opt}</div>
+                            </label>
+                        `;
                 });
                 optionsHtml += `</div>`;
             } else {
@@ -1163,18 +1317,19 @@
                 }
 
                 optionsHtml += `
-                    <input type="text" name="${namePrefix}${id}" class="text-input" placeholder="Answer" value="${val}" ${isReadonly ? 'readonly' : ''} style="${borderStyle}">
-                    ${correctAnswer && String(val) !== String(correctAnswer) ? `<div style="color:#3498db; font-size:0.9rem; margin-top:5px;">Correct Answer: <b>${correctAnswer}</b></div>` : ''}
-                `;
+                        <input type="text" name="${namePrefix}${id}" class="text-input" placeholder="Answer" value="${val}" ${isReadonly ? 'readonly' : ''} style="${borderStyle}">
+                        ${correctAnswer && String(val) !== String(correctAnswer) ? `<div style="color:#3498db; font-size:0.9rem; margin-top:5px;">Correct Answer: <b>${correctAnswer}</b></div>` : ''}
+                    `;
             }
 
             return `
-                <div class="question-card" ${isAdmin ? 'style="padding:15px; margin-bottom:10px;"' : ''}>
-                    <div class="q-title" ${isAdmin ? 'style="font-size:0.9rem; margin-bottom:10px;"' : ''}>${title}</div>
-                    ${optionsHtml}
-                </div>
-            `;
+                    <div class="question-card" ${isAdmin ? 'style="padding:15px; margin-bottom:10px;"' : ''}>
+                        <div class="q-title" ${isAdmin ? 'style="font-size:0.9rem; margin-bottom:10px;"' : ''}>${title}</div>
+                        ${optionsHtml}
+                    </div>
+                `;
         }
+
 
         async function getAnswerKeyMap() {
             // Fetch AnswerKey sheet
@@ -1224,37 +1379,9 @@
                 const NAME_IDX = 1; // Col B
                 const EMAIL_IDX = 2; // Col C
 
-                // ADMIN SELECTOR
+                // ADMIN SELECTOR (Removed per request)
                 let adminSelectorHtml = '';
-                if (isAdmin) {
-                    const users = [];
-                    rows.forEach(r => {
-                        if (r.c && r.c[EMAIL_IDX] && r.c[NAME_IDX]) {
-                            users.push({
-                                name: r.c[NAME_IDX].v,
-                                email: r.c[EMAIL_IDX].v
-                            });
-                        }
-                    });
 
-                    // Sort by name
-                    users.sort((a, b) => a.name.localeCompare(b.name));
-
-                    let options = `<option value="">-- Select a User --</option>`;
-                    users.forEach(u => {
-                        const sel = (targetEmail && targetEmail === u.email) ? 'selected' : '';
-                        options += `<option value="${u.email}" ${sel}>${u.name} (${u.email})</option>`;
-                    });
-
-                    adminSelectorHtml = `
-                        <div style="margin-bottom:20px; text-align:center; background:rgba(255,255,255,0.05); padding:15px; border-radius:10px;">
-                            <label style="display:block; margin-bottom:5px; color:var(--accent); font-size:0.9rem;">Refereee Inspection View</label>
-                            <select id="admin-user-selector" onchange="loadLiveAnswers(this.value)" style="padding:10px; border-radius:5px; background:var(--bg-card); color:var(--text-main); border:1px solid #555; width:100%; max-width:300px;">
-                                ${options}
-                            </select>
-                        </div>
-                    `;
-                }
 
                 // RESOLVE TARGET USER
                 // If targetEmail is set (Admin selected), use that.
@@ -1296,11 +1423,11 @@
 
                 for (const sectionName in sections) {
                     html += `
-                    <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;">
-                        <summary style="padding:15px; background:rgba(255,255,255,0.05); font-family:'Oswald'; cursor:pointer; font-size:1.1rem; color:var(--accent);">
-                            ${sectionName}
-                        </summary>
-                        <div style="padding:10px;">
+                        <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;">
+                            <summary style="padding:15px; background:rgba(255,255,255,0.05); font-family:'Oswald'; cursor:pointer; font-size:1.1rem; color:var(--accent);">
+                                ${sectionName}
+                            </summary>
+                            <div style="padding:10px;">
                     `;
                     sections[sectionName].forEach(q => {
                         const correctVal = keyMap[q.id];
@@ -1328,51 +1455,81 @@
         async function loadLeaderboard() {
             const tbody = document.getElementById('leaderboard-body');
             const lastUpdated = document.getElementById('last-updated');
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:#aaa;">Loading scores...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:#aaa;">Calculating scores...</td></tr>';
 
             try {
-                // User confirmed the sheet is named "Responses"
-                // Often this is "Form Responses 1" or similar, but we'll try "Responses" first as requested.
-                // If it fails, we might need error handling or fallback.
-                const data = await fetchSheetData('Responses');
-                const rows = data.table.rows;
-                const cols = data.table.cols; // GVIZ returns column descriptors too
-
-                if (!rows || rows.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px;">No scores yet.</td></tr>';
+                // 1. Fetch Answer Key
+                const keyMap = await getAnswerKeyMap();
+                if (Object.keys(keyMap).length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px;">No answer key found. scores cannot be calculated yet.</td></tr>';
                     return;
                 }
 
-                // Schema based on user screenshot:
-                // Col A (0): Timestamp
-                // Col B (1): Name
-                // Col C (2): Email
-                // Col D (3): Score
-                // Col E (4): MapData
+                // 2. Fetch All Responses
+                let allResponses = { table: { rows: [] } };
+                try {
+                    allResponses = await fetchSheetData('Responses');
+                } catch (err) {
+                    console.error("Error fetching responses for leaderboard", err);
+                    throw err;
+                }
 
-                const NAME_IDX = 1;
-                const SCORE_IDX = 3;
+                const rows = allResponses.table.rows;
+                const MAP_IDX = 4; // Col E: Answers JSON
+                const NAME_IDX = 1; // Col B: Name
 
-                // Algorithm to parse rows
+                // 3. Calculate Scores
                 let entries = [];
 
                 rows.forEach((r, i) => {
-                    if (!r.c) return;
+                    if (!r || !r.c) return;
 
-                    // Skip potential header row if first row has "Score" in the score column
-                    // (GVIZ sometimes puts header in 'cols' only, but sometimes in rows[0])
-                    const rawName = r.c[NAME_IDX] ? r.c[NAME_IDX].v : 'Anonymous';
-                    const rawScore = r.c[SCORE_IDX] ? r.c[SCORE_IDX].v : 0;
+                    const name = r.c[NAME_IDX] ? r.c[NAME_IDX].v : 'Anonymous';
+                    const answersJson = r.c[MAP_IDX] ? r.c[MAP_IDX].v : '{}';
 
-                    if (String(rawScore).trim().toLowerCase() === 'score') return; // It's a header
+                    if (name === 'Name' && i === 0) return; // Skip Header Row if present
 
-                    // Only add if name is present
-                    if (rawName && rawName !== 'Anonymous') {
-                        entries.push({ name: rawName, score: Number(rawScore) || 0 });
+                    let userAnswers = {};
+                    try {
+                        userAnswers = JSON.parse(answersJson);
+                    } catch (e) {
+                        console.warn("Error parsing answers for user", name, e);
                     }
+
+                    // Score Calculation
+                    let score = 0;
+                    for (const [qId, correctVal] of Object.entries(keyMap)) {
+                        // The user answers are stored with 'q' prefix usually, or sometimes not.
+                        // based on `updateProgress` -> `formData`, keys are `q1`, `q2`...
+                        // `getAnswerKeyMap` returns plain IDs `1`, `2`... or `q1`?
+                        // Let's check `getAnswerKeyMap` impl... it reads Col A (ID) and Col B (Answer).
+                        // In `questionsData`, IDs are `1`, `2`. 
+                        // In `renderQuestion`, name is `q${id}`.
+                        // In `userAnswers` (from `Responses`), keys are `q1`, `q2`.
+
+                        // AnswerKey Sheet IDs likely numeric `1`, `2`.
+                        // So we construct key `q${qId}`.
+                        const userKey = 'q' + qId;
+                        const userVal = userAnswers[userKey];
+
+                        if (userVal) {
+                            // Normalize for comparison (string, trim, lowercase?)
+                            // Current `renderQuestion` logic implies exact match or simple string comparison.
+                            // `renderQuestion` uses `includes` for arrays.
+
+                            // Arrays (Checkbox/Multi) vs String (Radio/Text)
+                            // Simple string equality for now as per V1
+                            if (String(userVal).trim().toLowerCase() === String(correctVal).trim().toLowerCase()) {
+                                score++;
+                            }
+                        }
+                    }
+
+                    // Add to entries
+                    entries.push({ name: name, score: score });
                 });
 
-                // Sort by Score DESC
+                // 4. Sort and Render
                 entries.sort((a, b) => b.score - a.score);
 
                 let html = '';
@@ -1392,7 +1549,7 @@
                 });
 
                 if (entries.length === 0) {
-                    html = '<tr><td colspan="3" style="text-align:center; padding:30px;">No graded responses found.</td></tr>';
+                    html = '<tr><td colspan="3" style="text-align:center; padding:30px;">No responses found.</td></tr>';
                 }
 
                 tbody.innerHTML = html;
@@ -1400,7 +1557,7 @@
 
             } catch (e) {
                 console.error(e);
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:var(--error);">Failed to load leaderboard.<br><small>Check console for details</small></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:var(--error);">Failed to calculate leaderboard.<br><small>Check console for details</small></td></tr>';
             }
         }
 
@@ -1420,9 +1577,9 @@
             const lockText = isLocked ? 'UNLOCK SUBMISSIONS 🔓' : 'LOCK SUBMISSIONS 🔒';
 
             wrapper.innerHTML = `
-                <button type="button" id="lock-toggle-btn" onclick="toggleAdminLock()" class="submit-btn" style="background:${lockColor}; flex:1; font-size:0.8rem; margin:0; padding:8px 15px;">${lockText}</button>
-                <button type="submit" class="submit-btn" style="background: var(--patriots-red); flex:2; margin:0; box-shadow: 0 0 20px rgba(255,0,0,0.3); font-size:0.9rem; padding:8px 15px;">UPDATE LIVE RESULTS 📡</button>
-            `;
+        <button type="button" id="lock-toggle-btn" onclick="toggleAdminLock()" class="submit-btn" style="background:${lockColor}; flex:1; font-size:0.8rem; margin:0; padding:8px 15px;">${lockText}</button>
+        <button type="submit" class="submit-btn" style="background: var(--patriots-red); flex:2; margin:0; box-shadow: 0 0 20px rgba(255,0,0,0.3); font-size:0.9rem; padding:8px 15px;">UPDATE LIVE RESULTS 📡</button>
+    `;
         }
 
         async function renderAdminQuestions() {
@@ -1445,7 +1602,7 @@
 
             for (const sectionName in sections) {
                 html += `
-                <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;">
+                < details open style = "margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;" >
                     <summary style="padding:15px; background:rgba(255,255,255,0.05); font-family:'Oswald'; cursor:pointer; font-size:1.1rem; color:var(--accent);">
                         ${sectionName}
                     </summary>
@@ -1456,7 +1613,7 @@
                     html += renderQuestion(q.id, q.text, q.options, true, keyMap[q.id]);
                 });
 
-                html += `</div></details>`;
+                html += `</div></details > `;
             }
 
             // Add padding for sticky footer
@@ -1466,7 +1623,7 @@
         }
 
         function toggleAdminLock() {
-            if (!confirm(`Are you sure you want to ${isLocked ? 'UNLOCK' : 'LOCK'} submissions?`)) return;
+            if (!confirm(`Are you sure you want to ${isLocked ? 'UNLOCK' : 'LOCK'} submissions ? `)) return;
 
             const btn = document.getElementById('lock-toggle-btn');
             const originalText = btn.innerText;
@@ -1482,7 +1639,7 @@
                 body: new URLSearchParams({ type: 'toggle_lock', locked: newState })
             })
                 .then(() => {
-                    showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'}!`, 'success');
+                    showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'} !`, 'success');
                     isLocked = newState;
                     renderAdminControl(); // Refresh UI
                 })
@@ -1496,26 +1653,61 @@
 
         // --- SUBMISSION ---
 
-        function submitBets(e) {
+        function submitBets(e, mode) {
             e.preventDefault();
-            const btn = document.getElementById('sticky-submit-btn') || document.getElementById('submit-btn');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerText = 'Submitting...';
+
+            // Guard: Require user to be signed in or have continued as guest
+            if (!currentUser || !currentUser.name || !currentUser.email) {
+                showToast('Please sign in or continue as guest first!', 'error');
+                return;
             }
 
-            const formData = new FormData(e.target);
+            const saveBtn = document.getElementById('sticky-save-btn');
+            const submitBtn = document.getElementById('sticky-submit-btn');
+
+            if (mode === 'draft') {
+                if (saveBtn) {
+                    saveBtn.disabled = true;
+                    saveBtn.innerText = 'Saving...';
+                }
+                document.getElementById('input-status').value = 'draft';
+            } else {
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerText = 'Submitting...';
+                }
+                document.getElementById('input-status').value = 'final';
+            }
+
+            const formData = new FormData(document.getElementById('prop-bets-form')); // specific form target
             const data = { type: 'bet' };
             formData.forEach((value, key) => data[key] = value);
 
             sendData(data, () => {
-                localStorage.setItem('sb_lix_submitted', 'true');
-                showToast('Bets Locked In! 🏈', 'success');
-                showSubmittedState();
+                if (mode === 'draft') {
+                    showToast('Progress Saved! 💾', 'success');
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                        saveBtn.innerText = 'SAVE 💾';
+                    }
+                } else {
+                    localStorage.setItem('sb_lix_submitted', 'true');
+                    showToast('Bets Submitted! Good Luck! �', 'success');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = 'UPDATE ENTRY ✏️';
+                    }
+                    // Re-run updateProgress to ensure button state
+                    updateProgress();
+                }
             }, () => {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerText = 'SAVE BETS 💾'; // Revert text
+                if (mode === 'draft' && saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerText = 'SAVE 💾';
+                }
+                if (mode === 'final' && submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'SUBMIT 🏈';
                 }
             });
         }
@@ -1523,8 +1715,24 @@
         function submitAdminKey(e) {
             e.preventDefault();
             const formData = new FormData(e.target);
+
+            // Aggregate multiple values (for checkboxes)
+            const multiValues = {};
+            for (const [key, val] of formData.entries()) {
+                if (!multiValues[key]) multiValues[key] = [];
+                multiValues[key].push(val);
+            }
+
             const data = { type: 'admin' };
-            formData.forEach((value, key) => data[key] = value);
+            for (const key in multiValues) {
+                const vals = multiValues[key];
+                if (vals.length === 1) {
+                    data[key] = vals[0];
+                } else {
+                    // Serialize array for multiple correct answers
+                    data[key] = JSON.stringify(vals);
+                }
+            }
 
             if (!confirm('Are you sure you want to update the official Answer Key? This will update scores.')) return;
 
