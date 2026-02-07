@@ -1623,7 +1623,7 @@
         }
 
         function toggleAdminLock() {
-            if (!confirm(`Are you sure you want to ${isLocked ? 'UNLOCK' : 'LOCK'} submissions ? `)) return;
+            if (!confirm(`Are you sure you want to ${isLocked ? 'UNLOCK' : 'LOCK'} submissions?`)) return;
 
             const btn = document.getElementById('lock-toggle-btn');
             const originalText = btn.innerText;
@@ -1632,23 +1632,17 @@
 
             const newState = !isLocked;
 
-            fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ type: 'toggle_lock', locked: newState })
-            })
-                .then(() => {
-                    showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'} !`, 'success');
-                    isLocked = newState;
-                    renderAdminControl(); // Refresh UI
-                })
-                .catch(err => {
-                    console.error(err);
-                    showToast('Failed to toggle lock', 'error');
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                });
+            // Use sendData helper
+            // Send locked as string "true"/"false" explicitly
+            sendData({ type: 'toggle_lock', locked: String(newState) }, () => {
+                showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'}!`, 'success');
+                isLocked = newState;
+                renderAdminControl(); // Refresh UI
+            }, () => {
+                showToast('Failed to toggle lock', 'error');
+                btn.innerText = originalText;
+                btn.disabled = false;
+            });
         }
 
         // --- SUBMISSION ---
@@ -1692,7 +1686,7 @@
                     }
                 } else {
                     localStorage.setItem('sb_lix_submitted', 'true');
-                    showToast('Bets Submitted! Good Luck! �', 'success');
+                    showToast('Bets Submitted! Good Luck! 🍀', 'success');
                     if (submitBtn) {
                         submitBtn.disabled = false;
                         submitBtn.innerText = 'UPDATE ENTRY ✏️';
@@ -1714,13 +1708,17 @@
 
         function submitAdminKey(e) {
             e.preventDefault();
+            console.log("Admin Submit Triggered"); // Debug
             const formData = new FormData(e.target);
 
             // Aggregate multiple values (for checkboxes)
             const multiValues = {};
             for (const [key, val] of formData.entries()) {
-                if (!multiValues[key]) multiValues[key] = [];
-                multiValues[key].push(val);
+                // Strip 'admin_' prefix if present so backend gets 'q1', 'q2'
+                const cleanKey = key.replace(/^admin_/, '');
+
+                if (!multiValues[cleanKey]) multiValues[cleanKey] = [];
+                multiValues[cleanKey].push(val);
             }
 
             const data = { type: 'admin' };
@@ -1733,6 +1731,8 @@
                     data[key] = JSON.stringify(vals);
                 }
             }
+
+            console.log("Sending Admin Data:", data);
 
             if (!confirm('Are you sure you want to update the official Answer Key? This will update scores.')) return;
 
@@ -1750,17 +1750,23 @@
                     btn.disabled = false;
                 }
 
-                // Return to View Mode
-                toggleAdminEditMode();
+                // Force a small delay to ensure sheet updates before we fetch? 
+                // Actually GVIZ is cached often. Let's hope cache busting works.
+                setTimeout(() => {
+                    // Return to View Mode
+                    toggleAdminEditMode();
 
-                // Refresh Answers tab so users see new results
-                loadLiveAnswers();
-                loadLeaderboard();
+                    // Refresh Answers tab so users see new results
+                    loadLiveAnswers();
+                    loadLeaderboard();
+                }, 1000);
+
             }, () => {
                 if (btn) {
                     btn.innerText = originalText;
                     btn.disabled = false;
                 }
+                showToast('Failed to update Answer Key', 'error');
             });
         }
 
