@@ -1739,8 +1739,8 @@
             // Aggregate multiple values (for checkboxes)
             const multiValues = {};
             for (const [key, val] of formData.entries()) {
-                // Strip 'admin_q' prefix if present so backend gets '1', '2' (numeric key)
-                const cleanKey = key.replace(/^admin_q/, '');
+                // Strip 'admin_' prefix if present so backend gets 'q1', 'q2'
+                const cleanKey = key.replace(/^admin_/, '');
 
                 if (!multiValues[cleanKey]) multiValues[cleanKey] = [];
                 multiValues[cleanKey].push(val);
@@ -1784,7 +1784,7 @@
                     // Refresh Answers tab so users see new results
                     loadLiveAnswers();
                     loadLeaderboard();
-                }, 1000);
+                }, 2500);
 
             }, () => {
                 if (btn) {
