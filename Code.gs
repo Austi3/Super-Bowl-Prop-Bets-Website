@@ -164,6 +164,37 @@ function recalculateAllScores(ss, answerSheet) {
     responseSheet.getRange(2, 4, scoresToUpdate.length, 1).setValues(scoresToUpdate);
     Logger.log("Updated scores for " + scoresToUpdate.length + " users.");
   }
+  
+  // 4. Update SCORES Sheet (Rank, Name, Score)
+  let scoresSheet = ss.getSheetByName('Scores');
+  if (!scoresSheet) {
+     scoresSheet = ss.insertSheet('Scores');
+     scoresSheet.appendRow(['Rank', 'Name', 'Score']);
+  }
+  
+  // Prepare data for Scores sheet
+  const leaderboardData = [];
+  for (let i = 1; i < responseData.length; i++) {
+     const name = responseData[i][1]; // Name is Col B (Index 1)
+     const score = scoresToUpdate[i-1][0]; // Score we just calculated
+     leaderboardData.push({name: name, score: score});
+  }
+  
+  // Sort Descending
+  leaderboardData.sort((a, b) => b.score - a.score);
+  
+  // Map to rows [Rank, Name, Score]
+  const rows = leaderboardData.map((d, index) => [index + 1, d.name, d.score]);
+  
+  if (rows.length > 0) {
+      // Clear old data (preserve header)
+      const lastRow = scoresSheet.getLastRow();
+      if (lastRow > 1) {
+          scoresSheet.getRange(2, 1, lastRow - 1, 3).clearContent();
+      }
+      scoresSheet.getRange(2, 1, rows.length, 3).setValues(rows);
+      Logger.log("Updated Scores/Leaderboard sheet with " + rows.length + " entries.");
+  }
 }
 
 
