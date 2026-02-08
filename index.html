@@ -555,6 +555,12 @@
             box-shadow: 0 0 15px rgba(241, 196, 15, 0.1) !important;
         }
 
+        /* Current User Leaderboard Highlight */
+        .current-user-row {
+            background: rgba(46, 204, 113, 0.15) !important;
+            border-left: 4px solid #2ecc71 !important;
+        }
+
         /* Ensure parent label has no background/border to avoid "rectangle outside" effect */
         .correct-answer,
         .wrong-answer,
@@ -886,8 +892,8 @@
         function disableForm() {
             const wrapper = document.getElementById('questions-wrapper');
             const prompt = document.getElementById('form-signin-prompt');
+            if (wrapper) prompt.style.display = 'block';
             if (wrapper) wrapper.classList.add('disabled');
-            if (prompt) prompt.style.display = 'block';
         }
 
         async function checkLockStatus() {
@@ -1687,8 +1693,13 @@
                 entries.forEach((entry, i) => {
                     const rank = i + 1;
                     const isGold = (rank === 1);
-                    const rowClass = isGold ? 'gold-row' : '';
+                    let rowClass = isGold ? 'gold-row' : '';
                     const medal = isGold ? '👑' : '';
+
+                    // Highlight Current User
+                    if (currentUser && currentUser.name && entry.name === currentUser.name) {
+                        rowClass += ' current-user-row';
+                    }
 
                     html += `
                         <tr class="${rowClass}">
