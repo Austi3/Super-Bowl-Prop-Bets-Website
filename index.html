@@ -604,6 +604,46 @@
             filter: grayscale(50%);
         }
 
+        /* Locked/Disabled State */
+        input[type="radio"]:disabled+.option-label,
+        input[type="checkbox"]:disabled+.option-label {
+            opacity: 0.6;
+            filter: grayscale(0.8);
+            cursor: not-allowed;
+            background: var(--bg-input);
+        }
+
+        /* Selected but Disabled (Blue Highlight) - specific for Locked State */
+        input[type="radio"]:disabled:checked+.option-label,
+        input[type="checkbox"]:disabled:checked+.option-label {
+            opacity: 1;
+            filter: none;
+            background: rgba(0, 194, 232, 0.4) !important;
+            border-color: var(--accent) !important;
+            color: white !important;
+            box-shadow: 0 0 15px rgba(0, 194, 232, 0.3);
+        }
+
+        /* Locked/Disabled State */
+        input[type="radio"]:disabled+.option-label,
+        input[type="checkbox"]:disabled+.option-label {
+            opacity: 0.6;
+            filter: grayscale(0.8);
+            cursor: not-allowed;
+            background: var(--bg-input);
+        }
+
+        /* Selected but Disabled (Blue Highlight) - specific for Locked State */
+        input[type="radio"]:disabled:checked+.option-label,
+        input[type="checkbox"]:disabled:checked+.option-label {
+            opacity: 1;
+            filter: none;
+            background: rgba(0, 194, 232, 0.4) !important;
+            border-color: var(--accent) !important;
+            color: white !important;
+            box-shadow: 0 0 15px rgba(0, 194, 232, 0.3);
+        }
+
         #form-signin-prompt {
             position: absolute;
             top: 50%;
@@ -660,9 +700,7 @@
                         style="font-size:0.9rem; color:#888;">BETS PLACED</span>
                 </div>
                 <div style="display:flex; gap:10px;">
-                    <button onclick="submitBets(event, 'draft')" id="sticky-save-btn" class="submit-btn"
-                        style="width:auto; padding:8px 15px; font-size:0.9rem; margin:0; background:transparent; border:1px solid #555; box-shadow:none;"
-                        disabled>SAVE 💾</button>
+                    <!-- Removed Save Button -->
                     <button onclick="submitBets(event, 'final')" id="sticky-submit-btn" class="submit-btn"
                         style="width:auto; padding:8px 20px; font-size:1rem; margin:0;" disabled>SUBMIT 🏈</button>
                 </div>
@@ -867,6 +905,7 @@
         // STATE
         let questionsData = []; // Store for admin use
         let isLocked = false;
+        let isEditing = false; // Track local edit state for submitted users
         let isAdmin = false; // Admins bypass the lock
         let currentUser = null; // Store logged in user
 
@@ -906,10 +945,40 @@
                         isLocked = (String(r.c[1].v).toLowerCase() === 'true');
                     }
                 });
+
+                // Apply Lock State to UI
+                updateLockUI();
+
             } catch (e) {
                 console.log("Config sheet not found or empty (likely new deployment)", e);
                 isLocked = false;
             }
+        }
+
+        function updateLockUI() {
+            // Disable all form inputs if:
+            // 1. Locked (and not admin)
+            // 2. Submitted AND not editing (and not admin)
+
+            const isSubmitted = localStorage.getItem('sb_lix_submitted');
+            const shouldDisable = (!isAdmin && isLocked) || (!isAdmin && isSubmitted && !isEditing);
+
+            // Apply to form wrapper for visual style if needed (e.g. opacity)
+            const form = document.getElementById('prop-bets-form');
+            if (form) {
+                if (shouldDisable) form.classList.add('disabled-form');
+                else form.classList.remove('disabled-form');
+            }
+
+            // Apply to individual inputs
+            const inputs = document.querySelectorAll('#prop-bets-form input, #prop-bets-form button, #prop-bets-form select, #prop-bets-form textarea');
+            inputs.forEach(el => {
+                // Don't disable hidden inputs
+                if (el.type === 'hidden') return;
+                el.disabled = shouldDisable;
+            });
+
+            updateProgress(); // Re-calc button state
         }
 
         // INIT
@@ -1151,11 +1220,9 @@
         async function loadQuestions() {
             const loader = document.getElementById('loader');
             const container = document.getElementById('questions-container');
-            const stickySaveBtn = document.getElementById('sticky-save-btn');
             const stickySubmitBtn = document.getElementById('sticky-submit-btn');
 
             loader.style.display = 'block';
-            if (stickySaveBtn) stickySaveBtn.disabled = true;
             if (stickySubmitBtn) {
                 stickySubmitBtn.disabled = true;
                 stickySubmitBtn.innerText = 'Loading...';
@@ -1229,26 +1296,11 @@
 
                 // LOCKED STATE HANDLING (admins bypass)
                 if (isLocked && !isAdmin) {
-                    if (stickySaveBtn) stickySaveBtn.disabled = true;
-                    if (stickySubmitBtn) {
-                        stickySubmitBtn.innerText = 'SUBMISSIONS CLOSED 🔒';
-                        stickySubmitBtn.disabled = true;
-                        stickySubmitBtn.style.background = '#555';
-                    }
                     // Show a non-blocking banner
                     showToast('Submissions are now CLOSED. You can still view your picks.', 'error');
-                } else {
-                    if (stickySaveBtn) {
-                        stickySaveBtn.disabled = false;
-                        stickySaveBtn.innerText = 'SAVE 💾';
-                    }
-                    if (stickySubmitBtn) {
-                        stickySubmitBtn.innerText = 'SUBMIT 🏈';
-                        stickySubmitBtn.disabled = false; // updateProgress will re-evaluate this
-                        stickySubmitBtn.style.background = '';
-                    }
-                    updateProgress();
                 }
+
+                updateLockUI(); // Handles disabling inputs and updating button text for all states
 
             } catch (err) {
                 console.error("LOAD ERROR:", err);
@@ -1293,34 +1345,42 @@
             });
 
             // Enable/disable buttons based on user login & completion
-            const saveBtn = document.getElementById('sticky-save-btn');
             const submitBtn = document.getElementById('sticky-submit-btn');
-
             const isSubmitted = localStorage.getItem('sb_lix_submitted');
 
-            if (saveBtn && !isLocked) {
-                saveBtn.disabled = false;
-            }
-
-            if (submitBtn && !isLocked) {
-                // Submit only allowed if ALL questions answered?
-                // User said: "submit button for when all bets are filled out"
-                // Let's enforce that or at least warn?
-                if (answered >= total) {
-                    submitBtn.disabled = false;
-                    submitBtn.style.opacity = '1';
-                    submitBtn.title = '';
-                } else {
+            if (submitBtn) {
+                if (isLocked && !isAdmin) { // Admins bypass lock
+                    // LOCKED STATE
                     submitBtn.disabled = true;
+                    submitBtn.innerText = 'LOCKED 🔒';
                     submitBtn.style.opacity = '0.5';
-                    submitBtn.title = 'Answer all questions to submit';
+                    submitBtn.style.background = '#444';
+                    submitBtn.style.boxShadow = 'none';
+                    return; // Stop here
                 }
 
-                // If already submitted, change text to "Update Entry"
+                // SUBMITTED STATE
                 if (isSubmitted) {
-                    submitBtn.innerText = 'UPDATE ENTRY ✏️';
-                    submitBtn.disabled = false; // Always allow update if already submitted once
+                    if (isEditing) {
+                        // EDITING MODE
+                        submitBtn.innerText = 'SUBMIT UPDATE 🏈';
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                        submitBtn.style.background = 'var(--gradient-primary)';
+                    } else {
+                        // READ-ONLY MODE
+                        submitBtn.innerText = 'EDIT BETS ✏️';
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                        submitBtn.style.background = '#00C2E8'; // Blue for Edit
+                    }
+                } else {
+                    // NEW STATE
+                    submitBtn.innerText = 'SUBMIT 🏈';
+                    // Allow submitting even if incomplete? We will warn instead of disable.
+                    submitBtn.disabled = false;
                     submitBtn.style.opacity = '1';
+                    submitBtn.style.background = 'var(--gradient-primary)';
                 }
             }
         }
@@ -1366,7 +1426,7 @@
             // Read-only if we are viewing results (correctAnswer or userAnswer exists) AND we are not in Admin Edit logic
             // But if isAdmin is TRUE, we are editing, so NOT readonly.
             // If isAdmin is FALSE (Player View), it is readonly if results exist OR if forceReadonly is true.
-            const isReadonly = forceReadonly || ((correctAnswer !== null || userAnswer !== null) && !isAdmin);
+            const isReadonly = forceReadonly || (!isAdmin && isLocked) || ((correctAnswer !== null || userAnswer !== null) && !isAdmin);
 
             // Determine Card Status for Outline
             let cardClass = '';
@@ -1800,6 +1860,7 @@
                 showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'}!`, 'success');
                 isLocked = newState;
                 renderAdminControl(); // Refresh UI
+                updateLockUI(); // Apply lock state to player form
             }, () => {
                 showToast('Failed to toggle lock', 'error');
                 btn.innerText = originalText;
@@ -1818,53 +1879,66 @@
                 return;
             }
 
-            const saveBtn = document.getElementById('sticky-save-btn');
-            const submitBtn = document.getElementById('sticky-submit-btn');
-
-            if (mode === 'draft') {
-                if (saveBtn) {
-                    saveBtn.disabled = true;
-                    saveBtn.innerText = 'Saving...';
-                }
-                document.getElementById('input-status').value = 'draft';
-            } else {
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.innerText = 'Submitting...';
-                }
-                document.getElementById('input-status').value = 'final';
+            if (isLocked && !isAdmin) {
+                showToast('Bets are LOCKED! Game has started.', 'error');
+                return;
             }
 
-            const formData = new FormData(document.getElementById('prop-bets-form')); // specific form target
+            const submitBtn = document.getElementById('sticky-submit-btn');
+            const isSubmitted = localStorage.getItem('sb_lix_submitted');
+
+            // EDIT MODE TOGGLE
+            // If submitted and NOT editing (and button says 'EDIT BETS'), toggle to edit mode
+            if (isSubmitted && !isEditing && submitBtn && submitBtn.innerText.includes('EDIT')) {
+                isEditing = true;
+                updateLockUI(); // Unlocks inputs
+                showToast('Edit Mode Enabled. Don\'t forget to Submit!', 'info');
+                return;
+            }
+
+            // SUBMISSION LOGIC (New or Update)
+
+            // Check completion
+            const form = document.getElementById('prop-bets-form');
+            const formData = new FormData(form);
+            let answeredCount = 0;
+            const totalQuestions = questionsData.length;
+
+            for (const [key, val] of formData.entries()) {
+                if (key.startsWith('q') && val.trim() !== '') {
+                    answeredCount++;
+                }
+            }
+
+            if (answeredCount < totalQuestions) {
+                const missing = totalQuestions - answeredCount;
+                if (!confirm(`You have ${missing} unanswered bets! \n\nAre you sure you want to submit?`)) {
+                    // Highlight missing
+                    highlightMissing();
+                    return;
+                }
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Submitting...';
+            }
+            document.getElementById('input-status').value = 'final';
+
             const data = { type: 'bet' };
             formData.forEach((value, key) => data[key] = value);
 
             sendData(data, () => {
-                if (mode === 'draft') {
-                    showToast('Progress Saved! 💾', 'success');
-                    if (saveBtn) {
-                        saveBtn.disabled = false;
-                        saveBtn.innerText = 'SAVE 💾';
-                    }
-                } else {
-                    localStorage.setItem('sb_lix_submitted', 'true');
-                    showToast('Bets Submitted! Good Luck! 🍀', 'success');
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.innerText = 'UPDATE ENTRY ✏️';
-                    }
-                    // Re-run updateProgress to ensure button state
-                    updateProgress();
-                }
+                localStorage.setItem('sb_lix_submitted', 'true');
+                showToast('Bets Submitted! Good Luck! 🍀', 'success');
+
+                // Exit Edit Mode on success
+                isEditing = false;
+                updateLockUI(); // This will re-disable inputs and change button back to EDIT
+
             }, () => {
-                if (mode === 'draft' && saveBtn) {
-                    saveBtn.disabled = false;
-                    saveBtn.innerText = 'SAVE 💾';
-                }
-                if (mode === 'final' && submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerText = 'SUBMIT 🏈';
-                }
+                showToast('Submission Failed. Try again.', 'error');
+                updateProgress(); // Restore button state
             });
         }
 
