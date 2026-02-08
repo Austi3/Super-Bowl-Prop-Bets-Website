@@ -1243,53 +1243,53 @@
                 // Col B (Idx 1) is Name, Col C (Idx 2) is Email, Col E (Idx 4) is JSON Logic
                 const EMAIL_IDX = 2;
                 const JSON_IDX = 4;
-                const STATUS_IDX = 5; // Assuming F is Status? Let's check sendData... 
-                // sendData params: type, q1, q2... 
-                // The Google Script writes to 'Responses'. It writes [Timestamp, Name, Email, Status, JSON] usually?
-                // Wait, let's check Code.gs or guess based on layout. 
-                // loadLeaderboard uses Idx 4 for JSON.
 
-                const userRow = rows.find(r => r.c && r.c[EMAIL_IDX] && r.c[EMAIL_IDX].v === currentUser.email);
+                // Case-insensitive find
+                const userEmail = currentUser.email.toLowerCase();
+                const userRow = rows.find(r => {
+                    if (!r.c || !r.c[EMAIL_IDX] || !r.c[EMAIL_IDX].v) return false;
+                    return String(r.c[EMAIL_IDX].v).toLowerCase() === userEmail;
+                });
 
                 if (userRow) {
                     // Populate Status
-                    // If we found a row, they have a submission. Use localStorage to persist 'submitted' state if missing?
-                    // Actually, if they have a row, we should treat it as submitted/in-progress.
-                    // Let's assume 'submitted' is true if they have data.
                     localStorage.setItem('sb_lix_submitted', 'true');
 
                     if (userRow.c[JSON_IDX]) {
-                        const answers = JSON.parse(userRow.c[JSON_IDX].v);
-                        console.log("Found answers:", answers);
+                        try {
+                            const answers = JSON.parse(userRow.c[JSON_IDX].v);
+                            console.log("Found answers for", userEmail, ":", answers);
 
-                        // Populate Form
-                        for (const [key, val] of Object.entries(answers)) {
-                            // key is 'q1', 'q2'...
-                            // Handle Radios
-                            const radios = document.getElementsByName(key);
-                            if (radios.length > 0) {
-                                for (const radio of radios) {
-                                    // Compare string values
-                                    if (String(radio.value) === String(val)) {
-                                        radio.checked = true;
+                            // Populate Form
+                            for (const [key, val] of Object.entries(answers)) {
+                                if (key === 'status') continue; // Skip metadata
+
+                                // Handle Radios/Checkboxes
+                                const radios = document.getElementsByName(key);
+                                if (radios.length > 0) {
+                                    for (const radio of radios) {
+                                        // Compare string values
+                                        if (String(radio.value) === String(val)) {
+                                            radio.checked = true;
+                                        }
                                     }
                                 }
-                            }
-                            // Handle Text Inputs (if any)
-                            const input = document.getElementById(key); // or name?
-                            // names are q1, q2. IDs might match?
-                            // renderQuestion uses name="${namePrefix}${id}".
-                            // It doesn't set ID on inputs usually.
-                            // But we can use getElementsByName for text too.
-                            const inputs = document.getElementsByName(key);
-                            if (inputs.length > 0 && inputs[0].type === 'text') {
-                                inputs[0].value = val;
-                            }
-                        }
 
-                        // Re-evaluate UI (Highlights, Buttons)
-                        updateLockUI();
+                                // Handle Text Inputs
+                                const inputs = document.getElementsByName(key);
+                                if (inputs.length > 0 && (inputs[0].type === 'text' || inputs[0].tagName === 'TEXTAREA' || inputs[0].tagName === 'SELECT')) {
+                                    inputs[0].value = val;
+                                }
+                            }
+
+                            // Re-evaluate UI (Highlights, Buttons)
+                            updateLockUI();
+                        } catch (e) {
+                            console.error("Error parsing answers JSON:", e);
+                        }
                     }
+                } else {
+                    console.log("No submission found for:", userEmail);
                 }
             } catch (e) {
                 console.error("Error loading user submission", e);
