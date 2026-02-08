@@ -75,11 +75,18 @@ function handleAdminUpdate(params) {
   
   Logger.log("Answers to write: " + JSON.stringify(answers));
   
+
+  // ... existing code ...
+
   // Sort by question number and write to sheet
   if (answers.length > 0) {
     answers.sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
     answerSheet.getRange(2, 1, answers.length, 2).setValues(answers);
     Logger.log("Successfully wrote " + answers.length + " answers to AnswerKey sheet");
+    
+    // NEW: Trigger Recalculation
+    recalculateAllScores(ss, answerSheet);
+    
   } else {
     Logger.log("No answers to write - params may be empty or malformed");
   }
@@ -87,9 +94,78 @@ function handleAdminUpdate(params) {
   return ContentService.createTextOutput(JSON.stringify({
     result: "success",
     action: "admin_updated",
-    answersWritten: answers.length
+    answersWritten: answers.length,
+    scoresUpdated: true
   })).setMimeType(ContentService.MimeType.JSON);
 }
+
+// ... existing handleBetSubmission code ...
+// ... existing handleLockToggle code ...
+
+/**
+ * HELPER: Read Answer Key and Recalculate Scores for ALL Responses
+ */
+function recalculateAllScores(ss, answerSheet) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!answerSheet) answerSheet = ss.getSheetByName('AnswerKey');
+  const responseSheet = ss.getSheetByName('Responses');
+  
+  if (!answerSheet || !responseSheet) return;
+
+  // 1. Read Answer Key into Map
+  const answerData = answerSheet.getDataRange().getValues(); // [QuestionID, Answer]
+  const keyMap = {};
+  for (let i = 1; i < answerData.length; i++) { // Skip header
+    const qId = answerData[i][0];
+    const val = answerData[i][1];
+    if (qId !== undefined && val !== undefined) {
+       keyMap[String(qId)] = String(val).trim().toLowerCase();
+    }
+  }
+  
+  // 2. Read Responses
+  const responseData = responseSheet.getDataRange().getValues();
+  // Col 5 (Index 4) is 'Answers' JSON. Col 4 (Index 3) is 'Score'.
+  if (responseData.length <= 1) return; // Only header
+
+  const scoresToUpdate = [];
+  
+  for (let i = 1; i < responseData.length; i++) {
+    const answersJson = responseData[i][4];
+    let score = 0;
+    
+    try {
+      const answers = JSON.parse(answersJson);
+      
+      // Calculate Score
+      for (const [qId, correctVal] of Object.entries(keyMap)) {
+        // User answers stored as 'q1', 'q2'...
+        const userKey = 'q' + qId;
+        const userValRaw = answers[userKey];
+        
+        if (userValRaw !== undefined) {
+           const uStr = String(userValRaw).trim().toLowerCase();
+           // Simple String Check (Assuming single select or matching stringified arrays)
+           if (uStr === correctVal) {
+             score++;
+           }
+        }
+      }
+    } catch (e) {
+      Logger.log("Error parsing answers for row " + (i+1) + ": " + e);
+    }
+    
+    scoresToUpdate.push([score]);
+  }
+  
+  // 3. Batch Update Scores Column (Col D, Index 4 -> 1-based)
+  // Scores is array of [score], length matches rows-1
+  if (scoresToUpdate.length > 0) {
+    responseSheet.getRange(2, 4, scoresToUpdate.length, 1).setValues(scoresToUpdate);
+    Logger.log("Updated scores for " + scoresToUpdate.length + " users.");
+  }
+}
+
 
 /**
  * Handle player bet submissions
