@@ -902,12 +902,16 @@
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_nTbItOpwdwLKjTAG4n7AvsqoNgnJxu5FJs06aIrgivk8uC01Zuo2sf_bgRUi4lhZ/exec';
         const ADMIN_PASS = 'sb2026';
 
-        // STATE
-        let questionsData = []; // Store for admin use
-        let isLocked = false;
-        let isEditing = false; // Track local edit state for submitted users
-        let isAdmin = false; // Admins bypass the lock
-        let currentUser = null; // Store logged in user
+        // STATE (Use var for global scope compatibility)
+        var questionsData = []; // Store for admin use
+        var isLocked = false;
+        var isEditing = false; // Track local edit state for submitted users
+        var isAdmin = false; // Admins bypass the lock
+        var currentUser = null; // Store logged in user
+
+        // Also expose to window for debug access
+        window.isLocked = isLocked;
+        window.isAdmin = isAdmin;
 
         // Try to load user from storage
         try {
@@ -943,6 +947,8 @@
                 rows.forEach(r => {
                     if (r.c && r.c[0] && r.c[0].v === 'submission_locked') {
                         isLocked = (String(r.c[1].v).toLowerCase() === 'true');
+                        window.isLocked = isLocked; // Sync for global access
+                        console.log('Lock status from Config sheet:', isLocked);
                     }
                 });
 
@@ -952,6 +958,7 @@
             } catch (e) {
                 console.log("Config sheet not found or empty (likely new deployment)", e);
                 isLocked = false;
+                window.isLocked = false;
             }
         }
 
@@ -2092,6 +2099,7 @@
             sendData({ type: 'lock', locked: String(newState) }, () => {
                 showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'}!`, 'success');
                 isLocked = newState;
+                window.isLocked = newState; // Sync for debug
                 renderAdminControl(); // Refresh UI
                 updateLockUI(); // Apply lock state to player form
             }, () => {
