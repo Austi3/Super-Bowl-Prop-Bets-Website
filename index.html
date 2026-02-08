@@ -1080,7 +1080,9 @@
             return JSON.parse(jsonPayload);
         }
 
-        function signOut() {
+        // Expose to window for onclick handlers - FORCE RELOAD ON SIGNOUT
+        window.signOut = function () {
+            console.log("signOut() called");
             try {
                 // 1. Reset Form Data
                 const form = document.getElementById('prop-bets-form');
@@ -1093,44 +1095,29 @@
                 // 3. Reset State
                 currentUser = null;
                 isEditing = false;
-                isAdmin = false; // Reset Admin status
+                isAdmin = false;
 
-                // 4. Update UI
+                // 4. Update UI (Visual Feedback before reload)
                 document.getElementById('g_id_signin_box').style.display = 'flex';
                 document.getElementById('user-profile').style.display = 'none';
-                document.getElementById('guest-signin-form').style.display = 'none'; // Reset guest form
-                document.getElementById('guest-signin-toggle').style.display = 'block'; // Reset toggle
 
-                // Clear inputs
-                document.getElementById('input-name').value = '';
-                document.getElementById('input-email').value = '';
-                document.getElementById('guest-name').value = '';
-                document.getElementById('guest-email').value = '';
-
-                // Hide Admin Controls
-                const adminHeader = document.getElementById('admin-controls-header');
-                if (adminHeader) adminHeader.style.display = 'none';
-
-                const adminLoginHeader = document.getElementById('admin-login-header');
-                if (adminLoginHeader) adminLoginHeader.style.display = 'block';
-
-                // 5. Disable Form & Reset Counts & Lock UI
-                disableForm();
-                updateLockUI();
-
-                // Try to disable Google Auto-select
+                // 5. Try to disable Google Auto-select
                 if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
                     google.accounts.id.disableAutoSelect();
                 }
 
-                showToast('Signed out successfully', 'info');
-                console.log("User signed out.");
+                showToast('Signed out successfully! Reloading...', 'info');
+
+                // FORCE RELOAD TO CLEAR ALL STATE
+                setTimeout(() => {
+                    location.reload();
+                }, 500);
+
             } catch (e) {
                 console.error("Sign Out Error:", e);
-                // Fallback UI reset
                 location.reload();
             }
-        }
+        };
 
         // GUEST LOGIN LOGIC
         function showGuestLogin() {
