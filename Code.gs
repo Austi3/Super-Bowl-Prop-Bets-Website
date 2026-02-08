@@ -145,8 +145,30 @@ function recalculateAllScores(ss, answerSheet) {
         
         if (userValRaw !== undefined) {
            const uStr = String(userValRaw).trim().toLowerCase();
-           // Simple String Check (Assuming single select or matching stringified arrays)
-           if (uStr === correctVal) {
+           
+           // Robust Check: Parse Correct Answer (handling JSON arrays)
+           let isCorrect = false;
+           try {
+               const correctObj = JSON.parse(correctVal);
+               if (Array.isArray(correctObj)) {
+                   // Correct Answer is Array (Multiple correct options OR user must select all?)
+                   // Assuming ANY match is sufficient (e.g. key allows multiple variations)
+                   // OR if User select single option, check if it's in list.
+                   // Normalized check:
+                   isCorrect = correctObj.some(c => String(c).trim().toLowerCase() === uStr);
+                   
+                   // If User Answer is ALSO array (unlikely for single questions, but possible)
+                   // We won't handle that complexity yet unless needed. uStr is stringified array "A,B".
+               } else {
+                   // Single Value (Unlikely to reach here if stringified array fails parse)
+                   isCorrect = (String(correctObj).trim().toLowerCase() === uStr);
+               }
+           } catch (e) {
+               // Not JSON, simple string comparison
+               if (uStr === correctVal) isCorrect = true;
+           }
+           
+           if (isCorrect) {
              score++;
            }
         }
