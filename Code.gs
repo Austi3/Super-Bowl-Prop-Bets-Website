@@ -83,13 +83,12 @@ function handleAdminUpdate(params) {
     answers.sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
     answerSheet.getRange(2, 1, answers.length, 2).setValues(answers);
     Logger.log("Successfully wrote " + answers.length + " answers to AnswerKey sheet");
-    
-    // NEW: Trigger Recalculation
-    recalculateAllScores(ss, answerSheet);
-    
   } else {
-    Logger.log("No answers to write - params may be empty or malformed");
+    Logger.log("No answers to write - keeping sheet clear (or unchanged if logic differs)");
   }
+  
+  // ALWAYS Trigger Recalculation (Even if answer key is cleared)
+  recalculateAllScores(ss, answerSheet);
   
   return ContentService.createTextOutput(JSON.stringify({
     result: "success",
