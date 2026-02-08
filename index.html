@@ -1767,10 +1767,11 @@
 
                         // Only show if there IS a correct answer (otherwise it's ungreaded)
                         // FORCE READONLY for Answers Tab!
+                        // Only show stats/percentages if admin has answered
                         if (correctVal) {
                             html += renderQuestion(q.id, q.text, q.options, false, userVal, correctVal, userVal, true, stats);
                         } else {
-                            html += renderQuestion(q.id, q.text + ' (Pending)', q.options, false, userVal, null, null, true, stats);
+                            html += renderQuestion(q.id, q.text + ' (Pending)', q.options, false, userVal, null, null, true, null);
                         }
                     });
                     html += `</div></details>`;
