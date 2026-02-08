@@ -989,7 +989,7 @@
                 // showSubmittedState(); // REMOVED per user request
             }
             await checkLockStatus();
-            loadQuestions();
+            await loadQuestions(); // Fix race condition: Ensure DOM is ready!
 
             // If user already signed in from storage, enable the form and show profile
             if (currentUser && currentUser.name && currentUser.email) {
@@ -1081,35 +1081,55 @@
         }
 
         function signOut() {
-            // 1. Reset Form Data
-            const form = document.getElementById('prop-bets-form');
-            if (form) form.reset();
+            try {
+                // 1. Reset Form Data
+                const form = document.getElementById('prop-bets-form');
+                if (form) form.reset();
 
-            // 2. Clear Local Storage
-            localStorage.removeItem('sb_prop_user');
-            localStorage.removeItem('sb_lix_submitted');
+                // 2. Clear Local Storage
+                localStorage.removeItem('sb_prop_user');
+                localStorage.removeItem('sb_lix_submitted');
 
-            // 3. Reset State
-            currentUser = null;
-            isEditing = false;
+                // 3. Reset State
+                currentUser = null;
+                isEditing = false;
+                isAdmin = false; // Reset Admin status
 
-            // 4. Update UI
-            document.getElementById('g_id_signin_box').style.display = 'flex';
-            document.getElementById('user-profile').style.display = 'none';
-            document.getElementById('guest-signin-form').style.display = 'none'; // Reset guest form
-            document.getElementById('guest-signin-toggle').style.display = 'block'; // Reset toggle
+                // 4. Update UI
+                document.getElementById('g_id_signin_box').style.display = 'flex';
+                document.getElementById('user-profile').style.display = 'none';
+                document.getElementById('guest-signin-form').style.display = 'none'; // Reset guest form
+                document.getElementById('guest-signin-toggle').style.display = 'block'; // Reset toggle
 
-            // Clear inputs
-            document.getElementById('input-name').value = '';
-            document.getElementById('input-email').value = '';
-            document.getElementById('guest-name').value = '';
-            document.getElementById('guest-email').value = '';
+                // Clear inputs
+                document.getElementById('input-name').value = '';
+                document.getElementById('input-email').value = '';
+                document.getElementById('guest-name').value = '';
+                document.getElementById('guest-email').value = '';
 
-            // 5. Disable Form & Reset Counts & Lock UI
-            disableForm();
-            updateLockUI(); // This will re-calculate progress (0/Total) and disable inputs
+                // Hide Admin Controls
+                const adminHeader = document.getElementById('admin-controls-header');
+                if (adminHeader) adminHeader.style.display = 'none';
 
-            showToast('Signed out successfully', 'info');
+                const adminLoginHeader = document.getElementById('admin-login-header');
+                if (adminLoginHeader) adminLoginHeader.style.display = 'block';
+
+                // 5. Disable Form & Reset Counts & Lock UI
+                disableForm();
+                updateLockUI();
+
+                // Try to disable Google Auto-select
+                if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+                    google.accounts.id.disableAutoSelect();
+                }
+
+                showToast('Signed out successfully', 'info');
+                console.log("User signed out.");
+            } catch (e) {
+                console.error("Sign Out Error:", e);
+                // Fallback UI reset
+                location.reload();
+            }
         }
 
         // GUEST LOGIN LOGIC
