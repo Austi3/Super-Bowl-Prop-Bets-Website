@@ -2089,7 +2089,7 @@
 
             // Use sendData helper
             // Send locked as string "true"/"false" explicitly
-            sendData({ type: 'toggle_lock', locked: String(newState) }, () => {
+            sendData({ type: 'lock', locked: String(newState) }, () => {
                 showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'}!`, 'success');
                 isLocked = newState;
                 renderAdminControl(); // Refresh UI
