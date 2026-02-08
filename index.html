@@ -1640,7 +1640,7 @@
         }
 
         async function loadLiveAnswers() {
-            const container = document.getElementById('answers-container');
+            const container = document.getElementById('live-answers-container');
             container.innerHTML = '<div style="padding:20px; text-align:center;">Loading live results...</div>';
 
             try {
@@ -1701,6 +1701,7 @@
                     sections[q.section].push(q);
                 });
 
+                let adminSelectorHtml = ''; // Placeholder (admin selector removed)
                 let html = adminSelectorHtml;
 
                 if (effectiveEmail) {
