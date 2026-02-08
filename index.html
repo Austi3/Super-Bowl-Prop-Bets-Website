@@ -1003,6 +1003,8 @@
                 document.getElementById('user-pic').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=random&color=fff`;
                 document.getElementById('input-name').value = currentUser.name;
                 document.getElementById('input-email').value = currentUser.email;
+                // Load their submission (Fix for refresh data loss)
+                loadUserSubmission();
             }
             // loadLeaderboard(); // Init Load
         });
@@ -1060,6 +1062,9 @@
 
                 // Enable the form
                 enableForm();
+
+                // Load existing submission if any
+                loadUserSubmission();
 
             } catch (e) {
                 console.error("Sign In Error", e);
@@ -1145,6 +1150,9 @@
 
             // Enable the form
             enableForm();
+
+            // Load existing submission if any
+            loadUserSubmission();
         }
 
         function switchTab(tab) {
@@ -1205,6 +1213,74 @@
         }
 
         // --- DATA LOADING ---
+
+        async function loadUserSubmission() {
+            if (!currentUser || !currentUser.email) return;
+
+            // Don't show loader here as it might conflict with questions loader, 
+            // but we want to populate silently.
+            console.log("Loading user submission for:", currentUser.email);
+
+            try {
+                // Fetch Responses Sheet
+                const data = await fetchSheetData('Responses');
+                const rows = data.table.rows;
+
+                // Col B (Idx 1) is Name, Col C (Idx 2) is Email, Col E (Idx 4) is JSON Logic
+                const EMAIL_IDX = 2;
+                const JSON_IDX = 4;
+                const STATUS_IDX = 5; // Assuming F is Status? Let's check sendData... 
+                // sendData params: type, q1, q2... 
+                // The Google Script writes to 'Responses'. It writes [Timestamp, Name, Email, Status, JSON] usually?
+                // Wait, let's check Code.gs or guess based on layout. 
+                // loadLeaderboard uses Idx 4 for JSON.
+
+                const userRow = rows.find(r => r.c && r.c[EMAIL_IDX] && r.c[EMAIL_IDX].v === currentUser.email);
+
+                if (userRow) {
+                    // Populate Status
+                    // If we found a row, they have a submission. Use localStorage to persist 'submitted' state if missing?
+                    // Actually, if they have a row, we should treat it as submitted/in-progress.
+                    // Let's assume 'submitted' is true if they have data.
+                    localStorage.setItem('sb_lix_submitted', 'true');
+
+                    if (userRow.c[JSON_IDX]) {
+                        const answers = JSON.parse(userRow.c[JSON_IDX].v);
+                        console.log("Found answers:", answers);
+
+                        // Populate Form
+                        for (const [key, val] of Object.entries(answers)) {
+                            // key is 'q1', 'q2'...
+                            // Handle Radios
+                            const radios = document.getElementsByName(key);
+                            if (radios.length > 0) {
+                                for (const radio of radios) {
+                                    // Compare string values
+                                    if (String(radio.value) === String(val)) {
+                                        radio.checked = true;
+                                    }
+                                }
+                            }
+                            // Handle Text Inputs (if any)
+                            const input = document.getElementById(key); // or name?
+                            // names are q1, q2. IDs might match?
+                            // renderQuestion uses name="${namePrefix}${id}".
+                            // It doesn't set ID on inputs usually.
+                            // But we can use getElementsByName for text too.
+                            const inputs = document.getElementsByName(key);
+                            if (inputs.length > 0 && inputs[0].type === 'text') {
+                                inputs[0].value = val;
+                            }
+                        }
+
+                        // Re-evaluate UI (Highlights, Buttons)
+                        updateLockUI();
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading user submission", e);
+            }
+        }
 
         async function fetchSheetData(sheetName) {
             // Add cache-busting timestamp to always get fresh data
@@ -1296,8 +1372,7 @@
 
                 // LOCKED STATE HANDLING (admins bypass)
                 if (isLocked && !isAdmin) {
-                    // Show a non-blocking banner
-                    showToast('Submissions are now CLOSED. You can still view your picks.', 'error');
+                    showToast('Submissions are locked because the game has begun. Check Leaderboard and Answer Key, Good Luck!', 'error');
                 }
 
                 updateLockUI(); // Handles disabling inputs and updating button text for all states
@@ -1330,15 +1405,14 @@
 
             document.getElementById('progress-text').innerText = `${answered}/${total}`;
 
-            // Auto-highlight missing questions
+            // Clear highlight when answered
             questionsData.forEach(q => {
                 const key = 'q' + q.id;
-                const el = document.getElementsByName(key)[0];
-                if (el) {
-                    const card = el.closest('.question-card');
-                    if (!answeredKeys.has(key)) {
-                        card.classList.add('unanswered');
-                    } else {
+                // Only act if it IS answered and HAS the class (optimization)
+                if (answeredKeys.has(key)) {
+                    const el = document.getElementsByName(key)[0];
+                    if (el) {
+                        const card = el.closest('.question-card');
                         card.classList.remove('unanswered');
                     }
                 }
@@ -1352,7 +1426,7 @@
                 if (isLocked && !isAdmin) { // Admins bypass lock
                     // LOCKED STATE
                     submitBtn.disabled = true;
-                    submitBtn.innerText = 'LOCKED 🔒';
+                    submitBtn.innerText = 'GAME STARTED 🔒';
                     submitBtn.style.opacity = '0.5';
                     submitBtn.style.background = '#444';
                     submitBtn.style.boxShadow = 'none';
@@ -1397,15 +1471,8 @@
                     const el = document.getElementsByName(key)[0];
                     if (el) {
                         const card = el.closest('.question-card');
-                        card.style.border = '2px solid red';
-                        card.style.boxShadow = '0 0 15px rgba(255,0,0,0.3)';
+                        card.classList.add('unanswered'); // Yellow highlight
                         if (!firstMissing) firstMissing = card;
-
-                        // Reset after 3s
-                        setTimeout(() => {
-                            card.style.border = '1px solid rgba(255,255,255,0.05)';
-                            card.style.boxShadow = 'none';
-                        }, 3000);
                     }
                 }
             });
@@ -1880,7 +1947,7 @@
             }
 
             if (isLocked && !isAdmin) {
-                showToast('Bets are LOCKED! Game has started.', 'error');
+                showToast('Submissions are locked because the game has begun. Check Leaderboard and Answer Key, Good Luck!', 'error');
                 return;
             }
 
