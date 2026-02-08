@@ -1092,18 +1092,26 @@
                 localStorage.removeItem('sb_prop_user');
                 localStorage.removeItem('sb_lix_submitted');
 
+                // Clear any potential Google session hints if possible (can't clear cookies from JS usually)
+
                 // 3. Reset State
                 currentUser = null;
                 isEditing = false;
                 isAdmin = false;
 
                 // 4. Update UI (Visual Feedback before reload)
-                document.getElementById('g_id_signin_box').style.display = 'flex';
-                document.getElementById('user-profile').style.display = 'none';
+                const gBox = document.getElementById('g_id_signin_box');
+                const uProfile = document.getElementById('user-profile');
+                if (gBox) gBox.style.display = 'flex';
+                if (uProfile) uProfile.style.display = 'none';
 
                 // 5. Try to disable Google Auto-select
-                if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-                    google.accounts.id.disableAutoSelect();
+                try {
+                    if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+                        google.accounts.id.disableAutoSelect();
+                    }
+                } catch (googleErr) {
+                    console.warn("Google Sign-Out disableAutoSelect error:", googleErr);
                 }
 
                 showToast('Signed out successfully! Reloading...', 'info');
@@ -1115,6 +1123,7 @@
 
             } catch (e) {
                 console.error("Sign Out Error:", e);
+                // Fallback reload
                 location.reload();
             }
         };
