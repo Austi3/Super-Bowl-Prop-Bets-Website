@@ -672,8 +672,66 @@
                 <span>vs</span>
                 <span class="team-badge pats">NE</span>
             </div>
+            <button onclick="showHowToPlay()"
+                style="margin-top:10px; background:transparent; border:1px solid var(--accent); color:var(--accent); padding:6px 15px; border-radius:20px; font-size:0.8rem; cursor:pointer; font-family:'Oswald'; letter-spacing:1px; transition:all 0.3s;">
+                ❓ HOW TO PLAY
+            </button>
         </div>
     </header>
+
+    <!-- HOW TO PLAY MODAL -->
+    <div id="how-to-play-modal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:9999; overflow-y:auto; padding:20px;">
+        <div
+            style="max-width:500px; margin:40px auto; background:var(--bg-card); border-radius:15px; padding:25px; border:1px solid var(--accent); box-shadow:0 0 30px rgba(0,194,232,0.3);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="font-family:'Oswald'; color:var(--accent); margin:0;">🏈 HOW TO PLAY</h2>
+                <button onclick="hideHowToPlay()"
+                    style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">✕</button>
+            </div>
+
+            <p style="color:white; font-size:1.1rem; margin-bottom:20px;">Welcome to Super Bowl LX Prop Bets!</p>
+
+            <h3 style="color:var(--accent); font-family:'Oswald'; margin-top:20px;">Getting Started</h3>
+            <ol style="color:#ccc; line-height:1.8; padding-left:20px;">
+                <li><strong>Sign In</strong> - Use your Google account or continue as a guest</li>
+                <li><strong>Make Your Picks</strong> - Answer all 33 prop bet questions</li>
+                <li><strong>Submit</strong> - Hit the submit button to lock in your picks</li>
+            </ol>
+
+            <h3 style="color:var(--accent); font-family:'Oswald'; margin-top:20px;">Scoring</h3>
+            <ul style="color:#ccc; line-height:1.8; padding-left:20px;">
+                <li>Each correct prediction = <strong style="color:white;">1 point</strong></li>
+                <li>Some bonus questions may award extra points (check the question text!)</li>
+            </ul>
+
+            <h3 style="color:var(--patriots-red); font-family:'Oswald'; margin-top:20px;">⏰ Important Deadline</h3>
+            <p
+                style="color:#ccc; background:rgba(188,32,53,0.2); padding:12px; border-radius:8px; border-left:3px solid var(--patriots-red);">
+                <strong style="color:white;">Austin & Gianna will lock submissions around 6:15 PM</strong> when the
+                National Anthem begins.<br>
+                Once locked, you will NOT be able to submit or edit your picks!
+            </p>
+
+            <h3 style="color:var(--accent); font-family:'Oswald'; margin-top:20px;">During the Game</h3>
+            <ul style="color:#ccc; line-height:1.8; padding-left:20px;">
+                <li>Watch your answers get graded live on the <strong>Answers</strong> tab</li>
+                <li>Check the <strong>Leaderboard</strong> to see where you stand</li>
+            </ul>
+
+            <h3 style="color:var(--accent); font-family:'Oswald'; margin-top:20px;">Tips</h3>
+            <ul style="color:#ccc; line-height:1.8; padding-left:20px;">
+                <li>You can <strong>edit</strong> your picks anytime before the lock</li>
+                <li>Green ✅ = Correct | Red ❌ = Wrong | Yellow ⏳ = Pending</li>
+                <li>Have fun and may the best predictor win! 🏆</li>
+            </ul>
+
+            <button onclick="hideHowToPlay()"
+                style="width:100%; margin-top:25px; padding:12px; background:var(--gradient-primary); border:none; border-radius:8px; color:white; font-family:'Oswald'; font-size:1rem; cursor:pointer; letter-spacing:1px;">
+                GOT IT! 🏈
+            </button>
+        </div>
+    </div>
 
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('bets')">PLACE BETS</button>
@@ -2291,6 +2349,16 @@
         function resetSubmission() {
             document.getElementById('prop-bets-form').style.display = 'block';
             document.getElementById('already-submitted').style.display = 'none';
+        }
+
+        function showHowToPlay() {
+            document.getElementById('how-to-play-modal').style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Prevent background scroll
+        }
+
+        function hideHowToPlay() {
+            document.getElementById('how-to-play-modal').style.display = 'none';
+            document.body.style.overflow = 'auto';
         }
 
         function showToast(msg, type) {
