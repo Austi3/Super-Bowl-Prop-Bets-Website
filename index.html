@@ -1081,21 +1081,35 @@
         }
 
         function signOut() {
+            // 1. Reset Form Data
+            const form = document.getElementById('prop-bets-form');
+            if (form) form.reset();
+
+            // 2. Clear Local Storage
+            localStorage.removeItem('sb_prop_user');
+            localStorage.removeItem('sb_lix_submitted');
+
+            // 3. Reset State
+            currentUser = null;
+            isEditing = false;
+
+            // 4. Update UI
             document.getElementById('g_id_signin_box').style.display = 'flex';
             document.getElementById('user-profile').style.display = 'none';
             document.getElementById('guest-signin-form').style.display = 'none'; // Reset guest form
             document.getElementById('guest-signin-toggle').style.display = 'block'; // Reset toggle
 
+            // Clear inputs
             document.getElementById('input-name').value = '';
             document.getElementById('input-email').value = '';
-
-            // Clear inputs
             document.getElementById('guest-name').value = '';
             document.getElementById('guest-email').value = '';
 
-            currentUser = null;
-            localStorage.removeItem('sb_prop_user');
+            // 5. Disable Form & Reset Counts & Lock UI
             disableForm();
+            updateLockUI(); // This will re-calculate progress (0/Total) and disable inputs
+
+            showToast('Signed out successfully', 'info');
         }
 
         // GUEST LOGIN LOGIC
