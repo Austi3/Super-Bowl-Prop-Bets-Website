@@ -1514,61 +1514,24 @@
 
         }
 
-        function renderQuestion(id, title, options, isAdmin = false, preSelectedValue = null, correctAnswer = null, userAnswer = null, forceReadonly = false) {
+        function renderQuestion(id, title, options, isAdmin = false, preSelectedValue = null, correctAnswer = null, userAnswer = null, forceReadonly = false, stats = null) {
+            // ... (rest of logic same until options loop)
             let optionsHtml = '';
             // For admin, prefix keys differently
             const namePrefix = isAdmin ? 'admin_q' : 'q';
 
-            // Read-only if we are viewing results (correctAnswer or userAnswer exists) AND we are not in Admin Edit logic
-            // But if isAdmin is TRUE, we are editing, so NOT readonly.
-            // If isAdmin is FALSE (Player View), it is readonly if results exist OR if forceReadonly is true.
             const isReadonly = forceReadonly || (!isAdmin && isLocked) || ((correctAnswer !== null || userAnswer !== null) && !isAdmin);
 
-            // Determine Card Status for Outline
-            let cardClass = '';
-            if (!isAdmin) {
-                if (correctAnswer) {
-                    // Helper to parse for checking status
-                    const pVals = (v) => {
-                        if (!v) return [];
-                        if (Array.isArray(v)) return v.map(String);
-                        try { const p = JSON.parse(v); if (Array.isArray(p)) return p.map(String); } catch (e) { }
-                        return [String(v)];
-                    };
-                    const cArr = pVals(correctAnswer);
-                    const uArr = pVals(userAnswer);
-
-                    // Check if User is Wrong (selected any option that is NOT in correct options)
-                    const isWrong = uArr.some(u => !cArr.includes(u));
-                    // Check if User is Correct (selected at least one correct option and NO wrong options - logic can vary)
-                    // For single choice: if uArr[0] in cArr -> Correct
-                    const isCorrect = uArr.length > 0 && !isWrong && uArr.every(u => cArr.includes(u));
-
-                    if (isWrong) {
-                        cardClass = 'card-wrong';
-                    } else if (isCorrect) {
-                        cardClass = 'card-correct';
-                    } else {
-                        // User didn't answer?
-                        // cardClass = 'card-pending'; 
-                    }
-                } else {
-                    // No answer key yet = Pending
-                    cardClass = 'card-pending';
-                }
-            }
+            // ... (Card Class Logic) ...
 
             if (options.length > 0) {
                 optionsHtml = `<div class="options-grid">`;
 
-                // Helper to parse potential JSON arrays or single values
+                // ... (Parsing helpers) ...
                 const parseVals = (val) => {
                     if (!val) return [];
                     if (Array.isArray(val)) return val.map(String);
-                    try {
-                        const parsed = JSON.parse(val);
-                        if (Array.isArray(parsed)) return parsed.map(String);
-                    } catch (e) { }
+                    try { const parsed = JSON.parse(val); if (Array.isArray(parsed)) return parsed.map(String); } catch (e) { }
                     return [String(val)];
                 };
 
@@ -1580,45 +1543,46 @@
                     const valsafe = String(opt).replace(/"/g, '&quot;');
                     const optStr = String(opt);
 
-                    // Check if matched
                     const isChecked = preSelectedArr.includes(optStr) ? 'checked' : '';
-
-                    // Highlighting Logic
                     let labelClass = '';
 
-                    // If checking results (correctAnswer exists)
+                    // ... (labelClass logic) ...
                     if (correctArr.length > 0) {
                         if (correctArr.includes(optStr)) {
-                            // This is a correct answer
-                            // Did user pick it?
-                            if (userArr.includes(optStr)) {
-                                labelClass = 'correct-answer';
-                            } else {
-                                labelClass = 'missed-correct-answer';
-                            }
+                            if (userArr.includes(optStr)) labelClass = 'correct-answer';
+                            else labelClass = 'missed-correct-answer';
                         } else if (userArr.includes(optStr)) {
-                            // User picked this, but it wasn't correct
                             labelClass = 'wrong-answer';
                         }
                     } else if (userArr.includes(optStr)) {
-                        // No correct answer yet, but user picked this
-                        labelClass = 'user-selected-pending'; // You might want to style this differently or just leave default
+                        labelClass = 'user-selected-pending';
                     }
 
-                    // Input Type: Checkbox for Admin (allows multi-select), Radio for User
+                    // STATS DISPLAY logic
+                    let statsHtml = '';
+                    if (stats && stats.total > 0) {
+                        const count = stats.options[optStr] || 0;
+                        const pct = Math.round((count / stats.total) * 100);
+                        // Add bar background? Or just text.
+                        // Let's do simple text for now to avoid clutter
+                        statsHtml = `<span style="float:right; font-size:0.85em; color:rgba(255,255,255,0.6); margin-left:8px;">${pct}% (${count})</span>`;
+                    }
+
                     const inputType = isAdmin ? 'checkbox' : 'radio';
 
                     optionsHtml += `
                             <label class="${labelClass}">
                                 <input type="${inputType}" name="${namePrefix}${id}" value="${valsafe}" ${!isAdmin ? 'required' : ''} ${isChecked} ${isReadonly ? 'disabled' : ''}>
-                                <div class="option-label" ${isAdmin ? 'style="font-size:0.8rem; min-height:40px; padding:10px;"' : ''}>${opt}</div>
+                                <div class="option-label" ${isAdmin ? 'style="font-size:0.8rem; min-height:40px; padding:10px;"' : ''}>
+                                    ${opt} ${statsHtml}
+                                </div>
                             </label>
                         `;
                 });
                 optionsHtml += `</div>`;
             } else {
+                // Text input handling ...
                 const val = preSelectedValue || '';
-                // Text input handling (simple border color if needed, but mostly options)
                 let borderStyle = '';
                 if (correctAnswer) {
                     if (String(val).toLowerCase().trim() === String(correctAnswer).toLowerCase().trim()) {
@@ -1629,9 +1593,32 @@
                 }
 
                 optionsHtml += `
-                        <input type="text" name="${namePrefix}${id}" class="text-input" placeholder="Answer" value="${val}" ${isReadonly ? 'readonly' : ''} style="${borderStyle}">
-                        ${correctAnswer && String(val) !== String(correctAnswer) ? `<div style="color:#3498db; font-size:0.9rem; margin-top:5px;">Correct Answer: <b>${correctAnswer}</b></div>` : ''}
-                    `;
+                         <input type="text" name="${namePrefix}${id}" class="text-input" placeholder="Answer" value="${val}" ${isReadonly ? 'readonly' : ''} style="${borderStyle}">
+                         ${correctAnswer && String(val) !== String(correctAnswer) ? `<div style="color:#3498db; font-size:0.9rem; margin-top:5px;">Correct Answer: <b>${correctAnswer}</b></div>` : ''}
+                     `;
+            }
+
+            // ... (Same Return) ...
+            let cardClass = '';
+            if (!isAdmin) {
+                if (correctAnswer) {
+                    const pVals = (v) => {
+                        if (!v) return [];
+                        if (Array.isArray(v)) return v.map(String);
+                        try { const p = JSON.parse(v); if (Array.isArray(p)) return p.map(String); } catch (e) { }
+                        return [String(v)];
+                    };
+                    const cArr = pVals(correctAnswer);
+                    const uArr = pVals(userAnswer);
+
+                    const isWrong = uArr.some(u => !cArr.includes(u));
+                    const isCorrect = uArr.length > 0 && !isWrong && uArr.every(u => cArr.includes(u));
+
+                    if (isWrong) cardClass = 'card-wrong';
+                    else if (isCorrect) cardClass = 'card-correct';
+                } else {
+                    cardClass = 'card-pending';
+                }
             }
 
             return `
@@ -1642,61 +1629,23 @@
                 `;
         }
 
-
-        async function getAnswerKeyMap() {
-            // Fetch AnswerKey sheet
-            try {
-                const data = await fetchSheetData('AnswerKey');
-                const rows = data.table.rows;
-                const keyMap = {};
-                rows.forEach((r, i) => {
-                    if (i < 1) return;
-                    if (!r || !r.c) return;
-                    const qId = r.c[0] ? r.c[0].v : null;
-                    const ans = r.c[1] ? r.c[1].v : null;
-                    if (qId && ans) keyMap[qId] = ans;
-                });
-                return keyMap;
-            } catch (e) {
-                console.warn("No answer key found yet or error", e);
-                return {};
-            }
-        }
-
-        async function loadLiveAnswers(targetEmail = null) {
-            // Re-using this container for User Results too
-            const container = document.getElementById('live-answers-container');
-            // Don't wipe innerHTML immediately if we want to preserve the selector, 
-            // but for simplicity we will re-render the selector every time (fast enough) or check existence.
-            container.innerHTML = '<div style="text-align:center; padding:20px;">Loading results...</div>';
+        async function loadLiveAnswers() {
+            const container = document.getElementById('answers-container');
+            container.innerHTML = '<div style="padding:20px; text-align:center;">Loading live results...</div>';
 
             try {
+                // 1. Fetch Key (Correct Answers)
                 const keyMap = await getAnswerKeyMap();
 
-                // If no answers yet, show placeholder
-                if (Object.keys(keyMap).length === 0) {
-                    container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">No answers released yet. Stay tuned!</div>';
-                    return;
-                }
-
-                // DATA FETCHING: Get All Responses (we need them for Admin anyway)
-                let allResponses = { table: { rows: [] } };
-                try {
-                    allResponses = await fetchSheetData('Responses');
-                } catch (err) {
-                    console.error("Error fetching responses", err);
-                }
-                const rows = allResponses.table.rows;
-                const MAP_IDX = 4;
-                const NAME_IDX = 1; // Col B
+                // 2. Fetch User Answers (from Responses sheet)
+                const data = await fetchSheetData('Responses');
+                const rows = data.table.rows;
                 const EMAIL_IDX = 2; // Col C
+                const MAP_IDX = 4;   // Col E
+                const NAME_IDX = 1;  // Col B
 
-                // ADMIN SELECTOR (Removed per request)
-                let adminSelectorHtml = '';
-
-
-                // RESOLVE TARGET USER
-                // If targetEmail is set (Admin selected), use that.
+                // Find logged in user's answers or use dummy
+                const targetEmail = currentUser ? currentUser.email : null;
                 // Else use currentUser.email
                 let effectiveEmail = targetEmail;
                 if (!effectiveEmail && currentUser) {
@@ -1706,17 +1655,34 @@
                 let targetUserAnswers = {};
                 let targetUserName = 'You';
 
-                if (effectiveEmail) {
-                    const userRow = rows.find(r => r.c && r.c[EMAIL_IDX] && r.c[EMAIL_IDX].v === effectiveEmail);
-                    if (userRow) {
-                        if (userRow.c[MAP_IDX]) {
-                            targetUserAnswers = JSON.parse(userRow.c[MAP_IDX].v);
-                        }
-                        if (userRow.c[NAME_IDX]) {
-                            targetUserName = userRow.c[NAME_IDX].v;
-                        }
+                // Calculate Stats Logic
+                const questionStats = {}; // { qId: { total: 0, options: { "Option A": 10, ... } } }
+
+                rows.forEach(r => {
+                    const answersJson = r.c[MAP_IDX] ? r.c[MAP_IDX].v : '{}';
+                    // Check user row
+                    if (effectiveEmail && r.c[EMAIL_IDX] && r.c[EMAIL_IDX].v === effectiveEmail) {
+                        try { targetUserAnswers = JSON.parse(answersJson); } catch (e) { }
+                        if (r.c[NAME_IDX]) targetUserName = r.c[NAME_IDX].v;
                     }
-                }
+
+                    // Stats Calculation
+                    try {
+                        const answers = JSON.parse(answersJson);
+                        for (const qKey in answers) {
+                            if (!qKey.startsWith('q')) continue;
+                            const qId = qKey.substring(1); // '1'
+                            const val = answers[qKey];
+                            const valStr = String(val).trim();
+
+                            if (!questionStats[qId]) questionStats[qId] = { total: 0, options: {} };
+
+                            if (!questionStats[qId].options[valStr]) questionStats[qId].options[valStr] = 0;
+                            questionStats[qId].options[valStr]++;
+                            questionStats[qId].total++;
+                        }
+                    } catch (e) { }
+                });
 
                 // Render Questions with Feedback
                 const sections = {};
@@ -1786,134 +1752,292 @@
                         const correctVal = keyMap[q.id];
                         // User answers are stored as "q1", "q2"... in the JSON
                         const userVal = targetUserAnswers['q' + q.id];
+                        const stats = questionStats[q.id];
 
                         // Only show if there IS a correct answer (otherwise it's ungreaded)
                         // FORCE READONLY for Answers Tab!
                         if (correctVal) {
-                            html += renderQuestion(q.id, q.text, q.options, false, userVal, correctVal, userVal, true);
+                            html += renderQuestion(q.id, q.text, q.options, false, userVal, correctVal, userVal, true, stats);
                         } else {
-                            html += renderQuestion(q.id, q.text + ' (Pending)', q.options, false, userVal, null, null, true);
+                            html += renderQuestion(q.id, q.text + ' (Pending)', q.options, false, userVal, null, null, true, stats);
                         }
                     });
                     html += `</div></details>`;
                 }
 
-                container.innerHTML = html;
 
-            } catch (e) {
-                console.error(e);
-                container.innerHTML = '<div style="text-align:center; padding:20px;">Could not load results.</div>';
-            }
-        }
 
-        async function loadLeaderboard() {
-            const tbody = document.getElementById('leaderboard-body');
-            const lastUpdated = document.getElementById('last-updated');
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:#aaa;">Loading scores...</td></tr>';
-
-            try {
-                // 1. Fetch Pre-Calculated Scores from Backend
-                // The 'Scores' sheet is automatically updated by the script when Admin updates key
-                let rawData = await fetchSheetData('Scores');
-                const rows = rawData.table.rows;
-
-                // 2. Parse Rows
-                let entries = [];
-                // Scores Sheet Columns: Rank (A), Name (B), Score (C)
-                // Indices: 0, 1, 2
-
-                rows.forEach((r, i) => {
-                    // Skip if empty or header (if GVIZ doesn't strip it, though usually it handles first row as data if queried wrong)
-                    // GVIZ query "select *" usually treats first row as labels if headers=1
-                    // Let's assume data starts from row 0 of result
-
-                    const rank = r.c[0] ? r.c[0].v : (i + 1);
-                    const name = r.c[1] ? r.c[1].v : 'Anonymous';
-                    const score = r.c[2] ? r.c[2].v : 0;
-
-                    if (name === 'Name' && i === 0) return; // Explicit header skip
-
-                    entries.push({ rank, name, score });
-                });
-
-                // 3. Render
-                let html = '';
-                entries.forEach((entry) => {
-                    const isGold = (entry.rank == 1);
-                    let rowClass = isGold ? 'gold-row' : '';
-                    const medal = isGold ? '👑' : '';
-
-                    // Highlight Current User
-                    // Loose match on name
-                    if (currentUser && currentUser.name && entry.name === currentUser.name) {
-                        rowClass += ' current-user-row';
+                async function getAnswerKeyMap() {
+                    // Fetch AnswerKey sheet
+                    try {
+                        const data = await fetchSheetData('AnswerKey');
+                        const rows = data.table.rows;
+                        const keyMap = {};
+                        rows.forEach((r, i) => {
+                            if (i < 1) return;
+                            if (!r || !r.c) return;
+                            const qId = r.c[0] ? r.c[0].v : null;
+                            const ans = r.c[1] ? r.c[1].v : null;
+                            if (qId && ans) keyMap[qId] = ans;
+                        });
+                        return keyMap;
+                    } catch (e) {
+                        console.warn("No answer key found yet or error", e);
+                        return {};
                     }
+                }
 
-                    html += `
+                async function loadLiveAnswers(targetEmail = null) {
+                    // Re-using this container for User Results too
+                    const container = document.getElementById('live-answers-container');
+                    // Don't wipe innerHTML immediately if we want to preserve the selector, 
+                    // but for simplicity we will re-render the selector every time (fast enough) or check existence.
+                    container.innerHTML = '<div style="text-align:center; padding:20px;">Loading results...</div>';
+
+                    try {
+                        const keyMap = await getAnswerKeyMap();
+
+                        // If no answers yet, show placeholder
+                        if (Object.keys(keyMap).length === 0) {
+                            container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">No answers released yet. Stay tuned!</div>';
+                            return;
+                        }
+
+                        // DATA FETCHING: Get All Responses (we need them for Admin anyway)
+                        let allResponses = { table: { rows: [] } };
+                        try {
+                            allResponses = await fetchSheetData('Responses');
+                        } catch (err) {
+                            console.error("Error fetching responses", err);
+                        }
+                        const rows = allResponses.table.rows;
+                        const MAP_IDX = 4;
+                        const NAME_IDX = 1; // Col B
+                        const EMAIL_IDX = 2; // Col C
+
+                        // ADMIN SELECTOR (Removed per request)
+                        let adminSelectorHtml = '';
+
+
+                        // RESOLVE TARGET USER
+                        // If targetEmail is set (Admin selected), use that.
+                        // Else use currentUser.email
+                        let effectiveEmail = targetEmail;
+                        if (!effectiveEmail && currentUser) {
+                            effectiveEmail = currentUser.email;
+                        }
+
+                        let targetUserAnswers = {};
+                        let targetUserName = 'You';
+
+                        if (effectiveEmail) {
+                            const userRow = rows.find(r => r.c && r.c[EMAIL_IDX] && r.c[EMAIL_IDX].v === effectiveEmail);
+                            if (userRow) {
+                                if (userRow.c[MAP_IDX]) {
+                                    targetUserAnswers = JSON.parse(userRow.c[MAP_IDX].v);
+                                }
+                                if (userRow.c[NAME_IDX]) {
+                                    targetUserName = userRow.c[NAME_IDX].v;
+                                }
+                            }
+                        }
+
+                        // Render Questions with Feedback
+                        const sections = {};
+                        questionsData.forEach(q => {
+                            if (!sections[q.section]) sections[q.section] = [];
+                            sections[q.section].push(q);
+                        });
+
+                        let html = adminSelectorHtml;
+
+                        if (effectiveEmail) {
+                            html += `<div style="text-align:center; margin-bottom:20px; color:var(--accent);">Results for: <b style="color:white; font-size:1.1rem;">${targetUserName}</b></div>`;
+                        } else if (!isAdmin) {
+                            html += `<div style="text-align:center; margin-bottom:20px; color:var(--text-muted);">Please log in to see your graded results.</div>`;
+                        }
+
+                        // --- Calculate Counts ---
+                        let correctCount = 0;
+                        let wrongCount = 0;
+                        let pendingCount = 0;
+                        let unansweredCount = 0;
+
+                        questionsData.forEach(q => {
+                            const cVal = keyMap[q.id];
+                            const uVal = targetUserAnswers['q' + q.id];
+
+                            if (cVal) {
+                                try {
+                                    if (checkAnswer(uVal, cVal)) {
+                                        correctCount++;
+                                    } else {
+                                        if (uVal) wrongCount++;
+                                        else unansweredCount++; // Or count as wrong?
+                                    }
+                                } catch (e) {
+                                    if (uVal) wrongCount++;
+                                }
+                            } else {
+                                pendingCount++;
+                            }
+                        });
+
+                        // --- Status Summary ---
+                        html += `
+                    <div style="display:flex; justify-content:center; gap:15px; margin-bottom:25px; flex-wrap:wrap;">
+                        <div style="background:rgba(40,167,69,0.2); border:1px solid rgba(40,167,69,0.4); padding:8px 15px; border-radius:30px; color:#2ecc71; font-weight:bold; font-size:0.9rem;">
+                            ✅ ${correctCount}
+                        </div>
+                        <div style="background:rgba(220,53,69,0.2); border:1px solid rgba(220,53,69,0.4); padding:8px 15px; border-radius:30px; color:#e74c3c; font-weight:bold; font-size:0.9rem;">
+                            ❌ ${wrongCount}
+                        </div>
+                        <div style="background:rgba(255,193,7,0.1); border:1px solid rgba(255,193,7,0.3); padding:8px 15px; border-radius:30px; color:#f1c40f; font-weight:bold; font-size:0.9rem;">
+                            ⏳ ${pendingCount}
+                        </div>
+                    </div>
+                `;
+
+                        for (const sectionName in sections) {
+                            html += `
+                        <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;">
+                            <summary style="padding:15px; background:rgba(255,255,255,0.05); font-family:'Oswald'; cursor:pointer; font-size:1.1rem; color:var(--accent);">
+                                ${sectionName}
+                            </summary>
+                            <div style="padding:10px;">
+                    `;
+                            sections[sectionName].forEach(q => {
+                                const correctVal = keyMap[q.id];
+                                // User answers are stored as "q1", "q2"... in the JSON
+                                const userVal = targetUserAnswers['q' + q.id];
+
+                                // Only show if there IS a correct answer (otherwise it's ungreaded)
+                                // FORCE READONLY for Answers Tab!
+                                if (correctVal) {
+                                    html += renderQuestion(q.id, q.text, q.options, false, userVal, correctVal, userVal, true);
+                                } else {
+                                    html += renderQuestion(q.id, q.text + ' (Pending)', q.options, false, userVal, null, null, true);
+                                }
+                            });
+                            html += `</div></details>`;
+                        }
+
+                        container.innerHTML = html;
+
+                    } catch (e) {
+                        console.error(e);
+                        container.innerHTML = '<div style="text-align:center; padding:20px;">Could not load results.</div>';
+                    }
+                }
+
+                async function loadLeaderboard() {
+                    const tbody = document.getElementById('leaderboard-body');
+                    const lastUpdated = document.getElementById('last-updated');
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:#aaa;">Loading scores...</td></tr>';
+
+                    try {
+                        // 1. Fetch Pre-Calculated Scores from Backend
+                        // The 'Scores' sheet is automatically updated by the script when Admin updates key
+                        let rawData = await fetchSheetData('Scores');
+                        const rows = rawData.table.rows;
+
+                        // 2. Parse Rows
+                        let entries = [];
+                        // Scores Sheet Columns: Rank (A), Name (B), Score (C)
+                        // Indices: 0, 1, 2
+
+                        rows.forEach((r, i) => {
+                            // Skip if empty or header (if GVIZ doesn't strip it, though usually it handles first row as data if queried wrong)
+                            // GVIZ query "select *" usually treats first row as labels if headers=1
+                            // Let's assume data starts from row 0 of result
+
+                            const rank = r.c[0] ? r.c[0].v : (i + 1);
+                            const name = r.c[1] ? r.c[1].v : 'Anonymous';
+                            const score = r.c[2] ? r.c[2].v : 0;
+
+                            if (name === 'Name' && i === 0) return; // Explicit header skip
+
+                            entries.push({ rank, name, score });
+                        });
+
+                        // 3. Render
+                        let html = '';
+                        entries.forEach((entry) => {
+                            const isGold = (entry.rank == 1);
+                            let rowClass = isGold ? 'gold-row' : '';
+                            const medal = isGold ? '👑' : '';
+
+                            // Highlight Current User
+                            // Loose match on name
+                            if (currentUser && currentUser.name && entry.name === currentUser.name) {
+                                rowClass += ' current-user-row';
+                            }
+
+                            html += `
                         <tr class="${rowClass}">
                             <td class="rank-cell">${entry.rank}</td>
                             <td>${entry.name} ${medal}</td>
                             <td style="text-align:right; font-weight:700;">${entry.score}</td>
                         </tr>
                     `;
-                });
+                        });
 
-                if (entries.length === 0) {
-                    html = '<tr><td colspan="3" style="text-align:center; padding:30px;">No scores yet. Check back after kickoff!</td></tr>';
+                        if (entries.length === 0) {
+                            html = '<tr><td colspan="3" style="text-align:center; padding:30px;">No scores yet. Check back after kickoff!</td></tr>';
+                        }
+
+                        tbody.innerHTML = html;
+                        lastUpdated.innerText = 'Last updated: ' + new Date().toLocaleTimeString();
+
+                    } catch (e) {
+                        console.error("Leaderboard Error:", e);
+                        // Fallback: Show error but maybe try loading Responses if Scores fails? 
+                        // For now, simple error.
+                        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:var(--error);">Failed to load leaderboard.<br><small>' + e.message + '</small></td></tr>';
+                    }
                 }
 
-                tbody.innerHTML = html;
-                lastUpdated.innerText = 'Last updated: ' + new Date().toLocaleTimeString();
+                // ADMIN RENDER
+                // ADMIN RENDER
+                function renderAdminControl() {
+                    const wrapper = document.getElementById('admin-controls-wrapper');
+                    if (!wrapper) return;
 
-            } catch (e) {
-                console.error("Leaderboard Error:", e);
-                // Fallback: Show error but maybe try loading Responses if Scores fails? 
-                // For now, simple error.
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:var(--error);">Failed to load leaderboard.<br><small>' + e.message + '</small></td></tr>';
-            }
-        }
+                    // ACL CHECK: Only render for admins
+                    if (!isAdmin) {
+                        wrapper.innerHTML = '';
+                        return;
+                    }
 
-        // ADMIN RENDER
-        // ADMIN RENDER
-        function renderAdminControl() {
-            const wrapper = document.getElementById('admin-controls-wrapper');
-            if (!wrapper) return;
+                    const lockColor = isLocked ? '#444' : 'var(--accent)';
+                    const lockText = isLocked ? 'UNLOCK SUBMISSIONS 🔓' : 'LOCK SUBMISSIONS 🔒';
 
-            // ACL CHECK: Only render for admins
-            if (!isAdmin) {
-                wrapper.innerHTML = '';
-                return;
-            }
-
-            const lockColor = isLocked ? '#444' : 'var(--accent)';
-            const lockText = isLocked ? 'UNLOCK SUBMISSIONS 🔓' : 'LOCK SUBMISSIONS 🔒';
-
-            wrapper.innerHTML = `
+                    wrapper.innerHTML = `
         <button type="button" id="lock-toggle-btn" onclick="toggleAdminLock()" class="submit-btn" style="background:${lockColor}; flex:1; font-size:0.8rem; margin:0; padding:8px 15px;">${lockText}</button>
         <button type="submit" class="submit-btn" style="background: var(--patriots-red); flex:2; margin:0; box-shadow: 0 0 20px rgba(255,0,0,0.3); font-size:0.9rem; padding:8px 15px;">UPDATE LIVE RESULTS 📡</button>
     `;
-        }
+                }
 
-        async function renderAdminQuestions() {
-            const container = document.getElementById('admin-questions-container');
-            container.innerHTML = '<div style="padding:20px; text-align:center;">Loading current results...</div>';
+                async function renderAdminQuestions() {
+                    const container = document.getElementById('admin-questions-container');
+                    container.innerHTML = '<div style="padding:20px; text-align:center;">Loading current results...</div>';
 
-            renderAdminControl(); // Init buttons
+                    renderAdminControl(); // Init buttons
 
-            // Fetch existing state
-            const keyMap = await getAnswerKeyMap();
+                    // Fetch existing state
+                    const keyMap = await getAnswerKeyMap();
 
-            // Group by Section
-            const sections = {};
-            questionsData.forEach(q => {
-                if (!sections[q.section]) sections[q.section] = [];
-                sections[q.section].push(q);
-            });
+                    // Group by Section
+                    const sections = {};
+                    questionsData.forEach(q => {
+                        if (!sections[q.section]) sections[q.section] = [];
+                        sections[q.section].push(q);
+                    });
 
-            let html = '';
+                    let html = '';
 
-            for (const sectionName in sections) {
-                html += `
+                    for (const sectionName in sections) {
+                        html += `
                 <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;">
                     <summary style="padding:15px; background:rgba(255,255,255,0.05); font-family:'Oswald'; cursor:pointer; font-size:1.1rem; color:var(--accent);">
                         ${sectionName}
@@ -1921,253 +2045,253 @@
                     <div style="padding:10px;">
                 `;
 
-                sections[sectionName].forEach(q => {
-                    html += renderQuestion(q.id, q.text, q.options, true, keyMap[q.id]);
-                });
+                        sections[sectionName].forEach(q => {
+                            html += renderQuestion(q.id, q.text, q.options, true, keyMap[q.id]);
+                        });
 
-                html += `</div></details>`;
-            }
+                        html += `</div></details>`;
+                    }
 
-            // Add padding for sticky footer
-            html += '<div style="height:80px;"></div>';
+                    // Add padding for sticky footer
+                    html += '<div style="height:80px;"></div>';
 
-            container.innerHTML = html;
-        }
-
-        function toggleAdminLock() {
-            if (!confirm(`Are you sure you want to ${isLocked ? 'UNLOCK' : 'LOCK'} submissions?`)) return;
-
-            const btn = document.getElementById('lock-toggle-btn');
-            const originalText = btn.innerText;
-            btn.innerText = 'Processing...';
-            btn.disabled = true;
-
-            const newState = !isLocked;
-
-            // Use sendData helper
-            // Send locked as string "true"/"false" explicitly
-            sendData({ type: 'toggle_lock', locked: String(newState) }, () => {
-                showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'}!`, 'success');
-                isLocked = newState;
-                renderAdminControl(); // Refresh UI
-                updateLockUI(); // Apply lock state to player form
-            }, () => {
-                showToast('Failed to toggle lock', 'error');
-                btn.innerText = originalText;
-                btn.disabled = false;
-            });
-        }
-
-        // --- SUBMISSION ---
-
-        function submitBets(e, mode) {
-            e.preventDefault();
-
-            // Guard: Require user to be signed in or have continued as guest
-            if (!currentUser || !currentUser.name || !currentUser.email) {
-                showToast('Please sign in or continue as guest first!', 'error');
-                return;
-            }
-
-            if (isLocked && !isAdmin) {
-                showToast('Submissions are locked because the game has begun. Check Leaderboard and Answer Key, Good Luck!', 'error');
-                return;
-            }
-
-            const submitBtn = document.getElementById('sticky-submit-btn');
-            const isSubmitted = localStorage.getItem('sb_lix_submitted');
-
-            // EDIT MODE TOGGLE
-            // If submitted and NOT editing (and button says 'EDIT BETS'), toggle to edit mode
-            if (isSubmitted && !isEditing && submitBtn && submitBtn.innerText.includes('EDIT')) {
-                isEditing = true;
-                updateLockUI(); // Unlocks inputs
-                showToast('Edit Mode Enabled. Don\'t forget to Submit!', 'info');
-                return;
-            }
-
-            // SUBMISSION LOGIC (New or Update)
-
-            // Check completion
-            const form = document.getElementById('prop-bets-form');
-            const formData = new FormData(form);
-            let answeredCount = 0;
-            const totalQuestions = questionsData.length;
-
-            for (const [key, val] of formData.entries()) {
-                if (key.startsWith('q') && val.trim() !== '') {
-                    answeredCount++;
-                }
-            }
-
-            if (answeredCount < totalQuestions) {
-                const missing = totalQuestions - answeredCount;
-                if (!confirm(`You have ${missing} unanswered bets! \n\nAre you sure you want to submit?`)) {
-                    // Highlight missing
-                    highlightMissing();
-                    return;
-                }
-            }
-
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerText = 'Submitting...';
-            }
-            document.getElementById('input-status').value = 'final';
-
-            const data = { type: 'bet' };
-            formData.forEach((value, key) => data[key] = value);
-
-            sendData(data, () => {
-                localStorage.setItem('sb_lix_submitted', 'true');
-                showToast('Bets Submitted! Good Luck! 🍀', 'success');
-
-                // Exit Edit Mode on success
-                isEditing = false;
-                updateLockUI(); // This will re-disable inputs and change button back to EDIT
-
-            }, () => {
-                showToast('Submission Failed. Try again.', 'error');
-                updateProgress(); // Restore button state
-            });
-        }
-
-        function submitAdminKey(e) {
-            e.preventDefault();
-            console.log("Admin Submit Triggered"); // Debug
-            const formData = new FormData(e.target);
-
-            // Aggregate multiple values (for checkboxes)
-            const multiValues = {};
-            for (const [key, val] of formData.entries()) {
-                // Strip 'admin_' prefix if present so backend gets 'q1', 'q2'
-                const cleanKey = key.replace(/^admin_/, '');
-
-                if (!multiValues[cleanKey]) multiValues[cleanKey] = [];
-                multiValues[cleanKey].push(val);
-            }
-
-            const data = { type: 'admin' };
-            for (const key in multiValues) {
-                const vals = multiValues[key];
-                if (vals.length === 1) {
-                    data[key] = vals[0];
-                } else {
-                    // Serialize array for multiple correct answers
-                    data[key] = JSON.stringify(vals);
-                }
-            }
-
-            console.log("Sending Admin Data:", data);
-
-            if (!confirm('Are you sure you want to update the official Answer Key? This will update scores.')) return;
-
-            const btn = e.target.querySelector('button[type="submit"]');
-            const originalText = btn ? btn.innerText : 'UPDATE';
-            if (btn) {
-                btn.innerText = 'Updating...';
-                btn.disabled = true;
-            }
-
-            sendData(data, () => {
-                showToast('Answer Key Updated! Scores Recalculating.', 'success');
-                if (btn) {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
+                    container.innerHTML = html;
                 }
 
-                // Force a small delay to ensure sheet updates before we fetch? 
-                // Actually GVIZ is cached often. Let's hope cache busting works.
-                setTimeout(() => {
-                    // Return to View Mode
-                    // toggleAdminEditMode(); // Keep admin in dashboard
+                function toggleAdminLock() {
+                    if (!confirm(`Are you sure you want to ${isLocked ? 'UNLOCK' : 'LOCK'} submissions?`)) return;
 
-                    // Refresh Answers tab so users see new results (hidden)
-                    loadLiveAnswers();
-                    loadLeaderboard();
-                }, 2500);
+                    const btn = document.getElementById('lock-toggle-btn');
+                    const originalText = btn.innerText;
+                    btn.innerText = 'Processing...';
+                    btn.disabled = true;
 
-            }, () => {
-                if (btn) {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
+                    const newState = !isLocked;
+
+                    // Use sendData helper
+                    // Send locked as string "true"/"false" explicitly
+                    sendData({ type: 'toggle_lock', locked: String(newState) }, () => {
+                        showToast(`Submissions ${newState ? 'LOCKED' : 'UNLOCKED'}!`, 'success');
+                        isLocked = newState;
+                        renderAdminControl(); // Refresh UI
+                        updateLockUI(); // Apply lock state to player form
+                    }, () => {
+                        showToast('Failed to toggle lock', 'error');
+                        btn.innerText = originalText;
+                        btn.disabled = false;
+                    });
                 }
-                showToast('Failed to update Answer Key', 'error');
-            });
-        }
 
-        function sendData(data, onSuccess, onError) {
-            fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams(data)
-            })
-                .then(() => { onSuccess(); })
-                .catch(err => {
-                    console.error(err);
-                    showToast('Submission Failed. Try again.', 'error');
-                    if (onError) onError();
-                });
-        }
+                // --- SUBMISSION ---
 
-        function toggleAdminEditMode() {
-            const viewMode = document.getElementById('answers-view-mode');
-            const dashboardMode = document.getElementById('admin-dashboard-view');
-            const header = document.getElementById('admin-controls-header');
+                function submitBets(e, mode) {
+                    e.preventDefault();
 
-            if (dashboardMode.style.display === 'none') {
-                // Switch to Edit Mode
-                viewMode.style.display = 'none';
-                dashboardMode.style.display = 'block';
-                header.style.display = 'none';
-                renderAdminQuestions();
-            } else {
-                // Switch to View Mode
-                viewMode.style.display = 'block';
-                dashboardMode.style.display = 'none';
-                header.style.display = 'block';
-                loadLiveAnswers();
-            }
-        }
+                    // Guard: Require user to be signed in or have continued as guest
+                    if (!currentUser || !currentUser.name || !currentUser.email) {
+                        showToast('Please sign in or continue as guest first!', 'error');
+                        return;
+                    }
 
-        function showSubmittedState() {
-            document.getElementById('prop-bets-form').style.display = 'none';
-            document.getElementById('already-submitted').style.display = 'block';
-            document.getElementById('already-submitted').scrollIntoView({ behavior: 'smooth' });
-        }
+                    if (isLocked && !isAdmin) {
+                        showToast('Submissions are locked because the game has begun. Check Leaderboard and Answer Key, Good Luck!', 'error');
+                        return;
+                    }
 
-        function resetSubmission() {
-            document.getElementById('prop-bets-form').style.display = 'block';
-            document.getElementById('already-submitted').style.display = 'none';
-        }
+                    const submitBtn = document.getElementById('sticky-submit-btn');
+                    const isSubmitted = localStorage.getItem('sb_lix_submitted');
 
-        function showToast(msg, type) {
-            const t = document.getElementById('toast');
-            document.getElementById('toast-msg').innerText = msg;
-            t.className = `toast show ${type}`;
-            setTimeout(() => t.classList.remove('show'), 3000);
-        }
-        function checkAnswer(userVal, correctVal) {
-            if (userVal === undefined || userVal === null) return false;
-            const uStr = String(userVal).trim().toLowerCase();
+                    // EDIT MODE TOGGLE
+                    // If submitted and NOT editing (and button says 'EDIT BETS'), toggle to edit mode
+                    if (isSubmitted && !isEditing && submitBtn && submitBtn.innerText.includes('EDIT')) {
+                        isEditing = true;
+                        updateLockUI(); // Unlocks inputs
+                        showToast('Edit Mode Enabled. Don\'t forget to Submit!', 'info');
+                        return;
+                    }
 
-            try {
-                // Parse Correct Val (might be JSON array)
-                const correctObj = JSON.parse(correctVal);
-                if (Array.isArray(correctObj)) {
-                    // Check if User value is ANY of the correct options 
-                    // (Robust handling for "Select Correct Answer" where admin selected multiple)
-                    return correctObj.some(c => String(c).trim().toLowerCase() === uStr);
-                } else {
-                    // Single stored value (unlikely if loop didn't catch array)
-                    return String(correctObj).trim().toLowerCase() === uStr;
+                    // SUBMISSION LOGIC (New or Update)
+
+                    // Check completion
+                    const form = document.getElementById('prop-bets-form');
+                    const formData = new FormData(form);
+                    let answeredCount = 0;
+                    const totalQuestions = questionsData.length;
+
+                    for (const [key, val] of formData.entries()) {
+                        if (key.startsWith('q') && val.trim() !== '') {
+                            answeredCount++;
+                        }
+                    }
+
+                    if (answeredCount < totalQuestions) {
+                        const missing = totalQuestions - answeredCount;
+                        if (!confirm(`You have ${missing} unanswered bets! \n\nAre you sure you want to submit?`)) {
+                            // Highlight missing
+                            highlightMissing();
+                            return;
+                        }
+                    }
+
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerText = 'Submitting...';
+                    }
+                    document.getElementById('input-status').value = 'final';
+
+                    const data = { type: 'bet' };
+                    formData.forEach((value, key) => data[key] = value);
+
+                    sendData(data, () => {
+                        localStorage.setItem('sb_lix_submitted', 'true');
+                        showToast('Bets Submitted! Good Luck! 🍀', 'success');
+
+                        // Exit Edit Mode on success
+                        isEditing = false;
+                        updateLockUI(); // This will re-disable inputs and change button back to EDIT
+
+                    }, () => {
+                        showToast('Submission Failed. Try again.', 'error');
+                        updateProgress(); // Restore button state
+                    });
                 }
-            } catch (e) {
-                // Simple string comparison
-                return uStr === String(correctVal).trim().toLowerCase();
-            }
-        }
+
+                function submitAdminKey(e) {
+                    e.preventDefault();
+                    console.log("Admin Submit Triggered"); // Debug
+                    const formData = new FormData(e.target);
+
+                    // Aggregate multiple values (for checkboxes)
+                    const multiValues = {};
+                    for (const [key, val] of formData.entries()) {
+                        // Strip 'admin_' prefix if present so backend gets 'q1', 'q2'
+                        const cleanKey = key.replace(/^admin_/, '');
+
+                        if (!multiValues[cleanKey]) multiValues[cleanKey] = [];
+                        multiValues[cleanKey].push(val);
+                    }
+
+                    const data = { type: 'admin' };
+                    for (const key in multiValues) {
+                        const vals = multiValues[key];
+                        if (vals.length === 1) {
+                            data[key] = vals[0];
+                        } else {
+                            // Serialize array for multiple correct answers
+                            data[key] = JSON.stringify(vals);
+                        }
+                    }
+
+                    console.log("Sending Admin Data:", data);
+
+                    if (!confirm('Are you sure you want to update the official Answer Key? This will update scores.')) return;
+
+                    const btn = e.target.querySelector('button[type="submit"]');
+                    const originalText = btn ? btn.innerText : 'UPDATE';
+                    if (btn) {
+                        btn.innerText = 'Updating...';
+                        btn.disabled = true;
+                    }
+
+                    sendData(data, () => {
+                        showToast('Answer Key Updated! Scores Recalculating.', 'success');
+                        if (btn) {
+                            btn.innerText = originalText;
+                            btn.disabled = false;
+                        }
+
+                        // Force a small delay to ensure sheet updates before we fetch? 
+                        // Actually GVIZ is cached often. Let's hope cache busting works.
+                        setTimeout(() => {
+                            // Return to View Mode
+                            // toggleAdminEditMode(); // Keep admin in dashboard
+
+                            // Refresh Answers tab so users see new results (hidden)
+                            loadLiveAnswers();
+                            loadLeaderboard();
+                        }, 2500);
+
+                    }, () => {
+                        if (btn) {
+                            btn.innerText = originalText;
+                            btn.disabled = false;
+                        }
+                        showToast('Failed to update Answer Key', 'error');
+                    });
+                }
+
+                function sendData(data, onSuccess, onError) {
+                    fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams(data)
+                    })
+                        .then(() => { onSuccess(); })
+                        .catch(err => {
+                            console.error(err);
+                            showToast('Submission Failed. Try again.', 'error');
+                            if (onError) onError();
+                        });
+                }
+
+                function toggleAdminEditMode() {
+                    const viewMode = document.getElementById('answers-view-mode');
+                    const dashboardMode = document.getElementById('admin-dashboard-view');
+                    const header = document.getElementById('admin-controls-header');
+
+                    if (dashboardMode.style.display === 'none') {
+                        // Switch to Edit Mode
+                        viewMode.style.display = 'none';
+                        dashboardMode.style.display = 'block';
+                        header.style.display = 'none';
+                        renderAdminQuestions();
+                    } else {
+                        // Switch to View Mode
+                        viewMode.style.display = 'block';
+                        dashboardMode.style.display = 'none';
+                        header.style.display = 'block';
+                        loadLiveAnswers();
+                    }
+                }
+
+                function showSubmittedState() {
+                    document.getElementById('prop-bets-form').style.display = 'none';
+                    document.getElementById('already-submitted').style.display = 'block';
+                    document.getElementById('already-submitted').scrollIntoView({ behavior: 'smooth' });
+                }
+
+                function resetSubmission() {
+                    document.getElementById('prop-bets-form').style.display = 'block';
+                    document.getElementById('already-submitted').style.display = 'none';
+                }
+
+                function showToast(msg, type) {
+                    const t = document.getElementById('toast');
+                    document.getElementById('toast-msg').innerText = msg;
+                    t.className = `toast show ${type}`;
+                    setTimeout(() => t.classList.remove('show'), 3000);
+                }
+                function checkAnswer(userVal, correctVal) {
+                    if (userVal === undefined || userVal === null) return false;
+                    const uStr = String(userVal).trim().toLowerCase();
+
+                    try {
+                        // Parse Correct Val (might be JSON array)
+                        const correctObj = JSON.parse(correctVal);
+                        if (Array.isArray(correctObj)) {
+                            // Check if User value is ANY of the correct options 
+                            // (Robust handling for "Select Correct Answer" where admin selected multiple)
+                            return correctObj.some(c => String(c).trim().toLowerCase() === uStr);
+                        } else {
+                            // Single stored value (unlikely if loop didn't catch array)
+                            return String(correctObj).trim().toLowerCase() === uStr;
+                        }
+                    } catch (e) {
+                        // Simple string comparison
+                        return uStr === String(correctVal).trim().toLowerCase();
+                    }
+                }
     </script>
 </body>
 
