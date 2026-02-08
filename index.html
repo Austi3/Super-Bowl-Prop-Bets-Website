@@ -1114,12 +1114,13 @@
                     console.warn("Google Sign-Out disableAutoSelect error:", googleErr);
                 }
 
-                showToast('Signed out successfully! Reloading...', 'info');
+                showToast('Signed out successfully!', 'info');
 
-                // FORCE RELOAD TO CLEAR ALL STATE
-                setTimeout(() => {
-                    location.reload();
-                }, 500);
+                // Disable form inputs
+                disableForm();
+
+                // NO RELOAD - Just stay signed out
+                // setTimeout(() => { location.reload(); }, 500);
 
             } catch (e) {
                 console.error("Sign Out Error:", e);
