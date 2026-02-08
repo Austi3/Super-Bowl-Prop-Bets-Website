@@ -1406,15 +1406,23 @@
         function updateProgress() {
             const total = questionsData.length;
             const form = document.getElementById('prop-bets-form');
-            const formData = new FormData(form);
 
             // Count unique keys starting with 'q'
             const answeredKeys = new Set();
-            for (const [key, val] of formData.entries()) {
-                if (key.startsWith('q') && val.trim() !== '') {
-                    answeredKeys.add(key);
+
+            // 1. Checked Inputs (Radio/Checkbox) - Works even if disabled
+            const checked = form.querySelectorAll('input[type="radio"]:checked, input[type="checkbox"]:checked');
+            checked.forEach(el => {
+                if (el.name.startsWith('q')) answeredKeys.add(el.name);
+            });
+
+            // 2. Text/Textarea/Select Inputs
+            const textInputs = form.querySelectorAll('input[type="text"], textarea, select');
+            textInputs.forEach(el => {
+                if (el.name.startsWith('q') && el.value.trim() !== '') {
+                    answeredKeys.add(el.name);
                 }
-            }
+            });
             const answered = answeredKeys.size;
 
             document.getElementById('progress-text').innerText = `${answered}/${total}`;
