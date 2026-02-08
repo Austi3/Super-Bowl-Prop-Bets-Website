@@ -458,20 +458,112 @@
             color: var(--error);
         }
 
-        /* USER RESULT HIGHLIGHTING */
-        .correct-answer {
-            background: rgba(46, 204, 113, 0.3) !important;
+        /* USER RESULT HIGHLIGHTING - Solid colors for clear feedback */
+        /* We apply specific styles to the .option-label child to respect border-radius */
+
+        /* 1. Correct Answer (Green) */
+        .correct-answer .option-label {
+            background: linear-gradient(135deg, #27ae60, #2ecc71) !important;
+            border: none !important;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.5) !important;
+            color: white !important;
+            position: relative;
+            overflow: hidden;
+            /* Ensure the icon is visible */
+        }
+
+        .correct-answer .option-label {
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+            font-weight: 700 !important;
+        }
+
+        .correct-answer .option-label::after {
+            content: '✓';
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 900;
+        }
+
+        /* 2. Wrong Answer (Red) */
+        .wrong-answer .option-label {
+            background: linear-gradient(135deg, #c0392b, #e74c3c) !important;
+            border: none !important;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.5) !important;
+            color: white !important;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .wrong-answer .option-label {
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+            font-weight: 700 !important;
+        }
+
+        .wrong-answer .option-label::after {
+            content: '✗';
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 900;
+        }
+
+        /* 3. Missed Correct Answer (Border Only) */
+        .missed-correct-answer .option-label {
+            background: transparent !important;
             border: 2px solid #2ecc71 !important;
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.2) !important;
+            color: rgba(255, 255, 255, 0.9) !important;
+            position: relative;
+            overflow: hidden;
+            font-weight: 600 !important;
         }
 
-        .wrong-answer {
-            background: rgba(231, 76, 60, 0.3) !important;
+        .missed-correct-answer .option-label::after {
+            content: '✓';
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            font-size: 1.1rem;
+            color: #2ecc71;
+            font-weight: 900;
+        }
+
+        /* Question Card Outlines */
+        .question-card {
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            /* Default fallback */
+            transition: all 0.3s ease;
+        }
+
+        .question-card.card-correct {
+            border: 2px solid #2ecc71 !important;
+            box-shadow: 0 0 20px rgba(46, 204, 113, 0.15) !important;
+        }
+
+        .question-card.card-wrong {
             border: 2px solid #e74c3c !important;
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.15) !important;
         }
 
+        .question-card.card-pending {
+            border: 2px solid #f1c40f !important;
+            box-shadow: 0 0 15px rgba(241, 196, 15, 0.1) !important;
+        }
+
+        /* Ensure parent label has no background/border to avoid "rectangle outside" effect */
+        .correct-answer,
+        .wrong-answer,
         .missed-correct-answer {
-            background: rgba(52, 152, 219, 0.3) !important;
-            border: 2px solid #3498db !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            transform: none !important;
+            /* Remove scaling from parent */
         }
 
         /* Unanswered question highlight */
@@ -763,7 +855,7 @@
         // CONFIG
         const SHEET_ID = '1h5SvSsrxeBa8YI_jBLg7Atvp_wtPqHOLRngFr_HQzCU';
         const SHEET_NAME_QUESTIONS = 'Printable Prop Bets Sheet';
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw3kcncm8n8_oWmSJ_K8DeyR9k3NfSVQvYO8twe9sWIweUSfqHYUUh9fkNGPnZ_UE36/exec';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzNjTaVIkioTvGVobit1VfmAg6kp-ApvYUo-wcJGJQFxNi7Jni8WJCO3WzLJxldL2wh/exec';
         const ADMIN_PASS = 'sb2026';
 
         // STATE
@@ -1270,6 +1362,40 @@
             // If isAdmin is FALSE (Player View), it is readonly if results exist OR if forceReadonly is true.
             const isReadonly = forceReadonly || ((correctAnswer !== null || userAnswer !== null) && !isAdmin);
 
+            // Determine Card Status for Outline
+            let cardClass = '';
+            if (!isAdmin) {
+                if (correctAnswer) {
+                    // Helper to parse for checking status
+                    const pVals = (v) => {
+                        if (!v) return [];
+                        if (Array.isArray(v)) return v.map(String);
+                        try { const p = JSON.parse(v); if (Array.isArray(p)) return p.map(String); } catch (e) { }
+                        return [String(v)];
+                    };
+                    const cArr = pVals(correctAnswer);
+                    const uArr = pVals(userAnswer);
+
+                    // Check if User is Wrong (selected any option that is NOT in correct options)
+                    const isWrong = uArr.some(u => !cArr.includes(u));
+                    // Check if User is Correct (selected at least one correct option and NO wrong options - logic can vary)
+                    // For single choice: if uArr[0] in cArr -> Correct
+                    const isCorrect = uArr.length > 0 && !isWrong && uArr.every(u => cArr.includes(u));
+
+                    if (isWrong) {
+                        cardClass = 'card-wrong';
+                    } else if (isCorrect) {
+                        cardClass = 'card-correct';
+                    } else {
+                        // User didn't answer?
+                        // cardClass = 'card-pending'; 
+                    }
+                } else {
+                    // No answer key yet = Pending
+                    cardClass = 'card-pending';
+                }
+            }
+
             if (options.length > 0) {
                 optionsHtml = `<div class="options-grid">`;
 
@@ -1347,7 +1473,7 @@
             }
 
             return `
-                    <div class="question-card" ${isAdmin ? 'style="padding:15px; margin-bottom:10px;"' : ''}>
+                    <div class="question-card ${cardClass}" ${isAdmin ? 'style="padding:15px; margin-bottom:10px;"' : ''}>
                         <div class="q-title" ${isAdmin ? 'style="font-size:0.9rem; margin-bottom:10px;"' : ''}>${title}</div>
                         ${optionsHtml}
                     </div>
