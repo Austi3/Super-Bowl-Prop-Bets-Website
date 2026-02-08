@@ -1768,98 +1768,49 @@
         async function loadLeaderboard() {
             const tbody = document.getElementById('leaderboard-body');
             const lastUpdated = document.getElementById('last-updated');
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:#aaa;">Calculating scores...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:#aaa;">Loading scores...</td></tr>';
 
             try {
-                // 1. Fetch Answer Key
-                const keyMap = await getAnswerKeyMap();
-                if (Object.keys(keyMap).length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px;">No answer key found. scores cannot be calculated yet.</td></tr>';
-                    return;
-                }
+                // 1. Fetch Pre-Calculated Scores from Backend
+                // The 'Scores' sheet is automatically updated by the script when Admin updates key
+                let rawData = await fetchSheetData('Scores');
+                const rows = rawData.table.rows;
 
-                // 2. Fetch All Responses
-                let allResponses = { table: { rows: [] } };
-                try {
-                    allResponses = await fetchSheetData('Responses');
-                } catch (err) {
-                    console.error("Error fetching responses for leaderboard", err);
-                    throw err;
-                }
-
-                const rows = allResponses.table.rows;
-                const MAP_IDX = 4; // Col E: Answers JSON
-                const NAME_IDX = 1; // Col B: Name
-
-                // 3. Calculate Scores
+                // 2. Parse Rows
                 let entries = [];
+                // Scores Sheet Columns: Rank (A), Name (B), Score (C)
+                // Indices: 0, 1, 2
 
                 rows.forEach((r, i) => {
-                    if (!r || !r.c) return;
+                    // Skip if empty or header (if GVIZ doesn't strip it, though usually it handles first row as data if queried wrong)
+                    // GVIZ query "select *" usually treats first row as labels if headers=1
+                    // Let's assume data starts from row 0 of result
 
-                    const name = r.c[NAME_IDX] ? r.c[NAME_IDX].v : 'Anonymous';
-                    const answersJson = r.c[MAP_IDX] ? r.c[MAP_IDX].v : '{}';
+                    const rank = r.c[0] ? r.c[0].v : (i + 1);
+                    const name = r.c[1] ? r.c[1].v : 'Anonymous';
+                    const score = r.c[2] ? r.c[2].v : 0;
 
-                    if (name === 'Name' && i === 0) return; // Skip Header Row if present
+                    if (name === 'Name' && i === 0) return; // Explicit header skip
 
-                    let userAnswers = {};
-                    try {
-                        userAnswers = JSON.parse(answersJson);
-                    } catch (e) {
-                        console.warn("Error parsing answers for user", name, e);
-                    }
-
-                    // Score Calculation
-                    let score = 0;
-                    for (const [qId, correctVal] of Object.entries(keyMap)) {
-                        // The user answers are stored with 'q' prefix usually, or sometimes not.
-                        // based on `updateProgress` -> `formData`, keys are `q1`, `q2`...
-                        // `getAnswerKeyMap` returns plain IDs `1`, `2`... or `q1`?
-                        // Let's check `getAnswerKeyMap` impl... it reads Col A (ID) and Col B (Answer).
-                        // In `questionsData`, IDs are `1`, `2`. 
-                        // In `renderQuestion`, name is `q${id}`.
-                        // In `userAnswers` (from `Responses`), keys are `q1`, `q2`.
-
-                        // AnswerKey Sheet IDs likely numeric `1`, `2`.
-                        // So we construct key `q${qId}`.
-                        const userKey = 'q' + qId;
-                        const userVal = userAnswers[userKey];
-
-                        if (userVal) {
-                            // Normalize for comparison (string, trim, lowercase?)
-                            // Current `renderQuestion` logic implies exact match or simple string comparison.
-                            // `renderQuestion` uses `includes` for arrays.
-
-                            // Arrays (Checkbox/Multi) vs String (Radio/Text)
-                            // Simple string equality for now as per V1
-                            if (String(userVal).trim().toLowerCase() === String(correctVal).trim().toLowerCase()) {
-                                score++;
-                            }
-                        }
-                    }
-
-                    // Add to entries
-                    entries.push({ name: name, score: score });
+                    entries.push({ rank, name, score });
                 });
 
-                // 4. Sort and Render
-                entries.sort((a, b) => b.score - a.score);
-
+                // 3. Render
                 let html = '';
-                entries.forEach((entry, i) => {
-                    const rank = i + 1;
-                    const isGold = (rank === 1);
+                entries.forEach((entry) => {
+                    const isGold = (entry.rank == 1);
                     let rowClass = isGold ? 'gold-row' : '';
                     const medal = isGold ? '👑' : '';
 
                     // Highlight Current User
+                    // Loose match on name
                     if (currentUser && currentUser.name && entry.name === currentUser.name) {
                         rowClass += ' current-user-row';
                     }
 
                     html += `
                         <tr class="${rowClass}">
-                            <td class="rank-cell">${rank}</td>
+                            <td class="rank-cell">${entry.rank}</td>
                             <td>${entry.name} ${medal}</td>
                             <td style="text-align:right; font-weight:700;">${entry.score}</td>
                         </tr>
@@ -1867,15 +1818,17 @@
                 });
 
                 if (entries.length === 0) {
-                    html = '<tr><td colspan="3" style="text-align:center; padding:30px;">No responses found.</td></tr>';
+                    html = '<tr><td colspan="3" style="text-align:center; padding:30px;">No scores yet. Check back after kickoff!</td></tr>';
                 }
 
                 tbody.innerHTML = html;
                 lastUpdated.innerText = 'Last updated: ' + new Date().toLocaleTimeString();
 
             } catch (e) {
-                console.error(e);
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:var(--error);">Failed to calculate leaderboard.<br><small>Check console for details</small></td></tr>';
+                console.error("Leaderboard Error:", e);
+                // Fallback: Show error but maybe try loading Responses if Scores fails? 
+                // For now, simple error.
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:30px; color:var(--error);">Failed to load leaderboard.<br><small>' + e.message + '</small></td></tr>';
             }
         }
 
