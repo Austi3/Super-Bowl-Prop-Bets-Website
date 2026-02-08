@@ -1733,6 +1733,47 @@
                     html += `<div style="text-align:center; margin-bottom:20px; color:var(--text-muted);">Please log in to see your graded results.</div>`;
                 }
 
+                // --- Calculate Counts ---
+                let correctCount = 0;
+                let wrongCount = 0;
+                let pendingCount = 0;
+                let unansweredCount = 0;
+
+                questionsData.forEach(q => {
+                    const cVal = keyMap[q.id];
+                    const uVal = targetUserAnswers['q' + q.id];
+
+                    if (cVal) {
+                        try {
+                            if (checkAnswer(uVal, cVal)) {
+                                correctCount++;
+                            } else {
+                                if (uVal) wrongCount++;
+                                else unansweredCount++; // Or count as wrong?
+                            }
+                        } catch (e) {
+                            if (uVal) wrongCount++;
+                        }
+                    } else {
+                        pendingCount++;
+                    }
+                });
+
+                // --- Status Summary ---
+                html += `
+                    <div style="display:flex; justify-content:center; gap:15px; margin-bottom:25px; flex-wrap:wrap;">
+                        <div style="background:rgba(40,167,69,0.2); border:1px solid rgba(40,167,69,0.4); padding:8px 15px; border-radius:30px; color:#2ecc71; font-weight:bold; font-size:0.9rem;">
+                            ✅ ${correctCount} Correct
+                        </div>
+                        <div style="background:rgba(220,53,69,0.2); border:1px solid rgba(220,53,69,0.4); padding:8px 15px; border-radius:30px; color:#e74c3c; font-weight:bold; font-size:0.9rem;">
+                            ❌ ${wrongCount} Wrong
+                        </div>
+                        <div style="background:rgba(255,193,7,0.1); border:1px solid rgba(255,193,7,0.3); padding:8px 15px; border-radius:30px; color:#f1c40f; font-weight:bold; font-size:0.9rem;">
+                            ⏳ ${pendingCount} Pending
+                        </div>
+                    </div>
+                `;
+
                 for (const sectionName in sections) {
                     html += `
                         <details open style="margin-bottom:15px; background:rgba(255,255,255,0.03); border-radius:10px; overflow:hidden;">
@@ -2106,6 +2147,26 @@
             document.getElementById('toast-msg').innerText = msg;
             t.className = `toast show ${type}`;
             setTimeout(() => t.classList.remove('show'), 3000);
+        }
+        function checkAnswer(userVal, correctVal) {
+            if (userVal === undefined || userVal === null) return false;
+            const uStr = String(userVal).trim().toLowerCase();
+
+            try {
+                // Parse Correct Val (might be JSON array)
+                const correctObj = JSON.parse(correctVal);
+                if (Array.isArray(correctObj)) {
+                    // Check if User value is ANY of the correct options 
+                    // (Robust handling for "Select Correct Answer" where admin selected multiple)
+                    return correctObj.some(c => String(c).trim().toLowerCase() === uStr);
+                } else {
+                    // Single stored value (unlikely if loop didn't catch array)
+                    return String(correctObj).trim().toLowerCase() === uStr;
+                }
+            } catch (e) {
+                // Simple string comparison
+                return uStr === String(correctVal).trim().toLowerCase();
+            }
         }
     </script>
 </body>
